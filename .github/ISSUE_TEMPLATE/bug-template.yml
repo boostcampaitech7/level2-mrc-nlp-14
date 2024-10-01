@@ -1,0 +1,42 @@
+name: Bug Report
+description: 오류 수정관련
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: bug-desc
+    attributes:
+      label: 오류 설명
+      description: 발견한 오류에 대한 설명
+      placeholder: ex) 특정 값으로 함수 실행 시 Exception 발생
+    validations:
+      required: true
+  - type: textarea
+    id: bug-flow
+    attributes:
+      label: 문제 상황 재현 방법
+      description: 문제를 재현할 수 있는 대한 설명
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: 실행 환경
+      description: 해당 소프트웨어를 실행시킨 운영체제, 하드웨어 플랫폼 등 실행 환경 정보
+      placeholder: ex) 윈도우, 맥, GPU 서버 등
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 버그 발생시 이미지(권장)
+      description: 버그가 발생했을때 화면 스크린샷
+  - type: textarea
+    id: logs
+    attributes:
+      label: 오류 로그
+      description: 관련 오류 로그 첨부. 해당 로그는 자동으로 코드로 들어가므로 backtick(`)을 추가하지말고 텍스트만 입력
+      render: shell
+  - type: textarea
+    id: bug-etc
+    attributes:
+      label: 기타 사항
+      description: 기타 오류 관련 정보
