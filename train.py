@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    # 가능한 arguments 들은 ./arguments.py 나 transformer package 안의 src/transformers/training_args.py 에서 확인 가능합니다.
-    # --help flag 를 실행시켜서 확인할 수 도 있습니다.
+    # 가능한 arguments 들은 args/ 내부의 클래스에서 확인 가능합니다.
+    # 또는 --help flag 를 실행시켜서 확인할 수 도 있습니다.
 
     # 3개의 dataclass를 parser에 받아서
     parser = HfArgumentParser(
@@ -30,11 +30,6 @@ def main():
     )
     # 각각의 변수에 unpacking
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-    # ModelArguments의 model_name_or_path의 필드값이 들어가있다
-    print(model_args.model_name_or_path)
-
-    print(f"model is from {model_args.model_name_or_path}")
-    print(f"data is from {data_args.dataset_name}")
 
     # logging 설정
     logging.basicConfig(
@@ -50,30 +45,15 @@ def main():
     set_seed(training_args.seed)
 
     datasets = load_from_disk(data_args.dataset_name)
-    print(datasets)
-
-    # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
-    # argument로 원하는 모델 이름을 설정하면 옵션을 바꿀 수 있습니다.
     tokenizer = AutoTokenizer.from_pretrained(
         (
             model_args.tokenizer_name
             if model_args.tokenizer_name is not None
             else model_args.model_name_or_path
         ),
-        # 'use_fast' argument를 True로 설정할 경우 rust로 구현된 tokenizer를 사용할 수 있습니다.
-        # False로 설정할 경우 python으로 구현된 tokenizer를 사용할 수 있으며,
-        # rust version이 비교적 속도가 빠릅니다.
-        use_fast=True,
+        use_fast=True,  # rust version tokenizer 사용 여부(좀 더 빠름)
     )
     model = QuestionAnsweringModel(model_args)
-
-    print(
-        type(training_args),
-        type(model_args),
-        type(datasets),
-        type(tokenizer),
-        type(model),
-    )
 
     # do_train mrc model 혹은 do_eval mrc model
     if training_args.do_train or training_args.do_eval:
