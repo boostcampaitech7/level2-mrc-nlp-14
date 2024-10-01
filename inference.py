@@ -10,6 +10,7 @@ from typing import Callable, Dict, List, NoReturn, Tuple
 
 import numpy as np
 from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
+from model import QuestionAnsweringModel
 from datasets import (
     Dataset,
     DatasetDict,
@@ -22,8 +23,6 @@ from datasets import (
 from retrieval import SparseRetrieval
 from trainer import QuestionAnsweringTrainer
 from transformers import (
-    AutoConfig,
-    AutoModelForQuestionAnswering,
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,
@@ -67,13 +66,6 @@ def main():
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
     # argument로 원하는 모델 이름을 설정하면 옵션을 바꿀 수 있습니다.
-    config = AutoConfig.from_pretrained(
-        (
-            model_args.config_name
-            if model_args.config_name
-            else model_args.model_name_or_path
-        ),
-    )
     tokenizer = AutoTokenizer.from_pretrained(
         (
             model_args.tokenizer_name
@@ -82,11 +74,7 @@ def main():
         ),
         use_fast=True,
     )
-    model = AutoModelForQuestionAnswering.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
-        config=config,
-    )
+    model = QuestionAnsweringModel(model_args)
 
     # True일 경우 : run passage retrieval
     if data_args.eval_retrieval:

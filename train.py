@@ -1,17 +1,13 @@
 import logging
 import os
 import sys
-import random
-import numpy as np
-import torch
 from typing import NoReturn
 
 from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
+from model import QuestionAnsweringModel
 from datasets import DatasetDict, load_from_disk, load_metric
 from trainer import QuestionAnsweringTrainer
 from transformers import (
-    AutoConfig,
-    AutoModelForQuestionAnswering,
     AutoTokenizer,
     DataCollatorWithPadding,
     EvalPrediction,
@@ -58,13 +54,6 @@ def main():
 
     # AutoConfig를 이용하여 pretrained model 과 tokenizer를 불러옵니다.
     # argument로 원하는 모델 이름을 설정하면 옵션을 바꿀 수 있습니다.
-    config = AutoConfig.from_pretrained(
-        (
-            model_args.config_name
-            if model_args.config_name is not None
-            else model_args.model_name_or_path
-        ),
-    )
     tokenizer = AutoTokenizer.from_pretrained(
         (
             model_args.tokenizer_name
@@ -76,11 +65,7 @@ def main():
         # rust version이 비교적 속도가 빠릅니다.
         use_fast=True,
     )
-    model = AutoModelForQuestionAnswering.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
-        config=config,
-    )
+    model = QuestionAnsweringModel(model_args)
 
     print(
         type(training_args),
