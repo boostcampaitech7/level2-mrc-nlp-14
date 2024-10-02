@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from typing import NoReturn
+import wandb
 
 from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
 from model import QuestionAnsweringModel
@@ -16,6 +17,7 @@ from transformers import (
 )
 from utils_qa import check_no_error, postprocess_qa_predictions
 
+wandb.init(project="MRC", entity="word-maestro")
 
 logger = logging.getLogger(__name__)
 
