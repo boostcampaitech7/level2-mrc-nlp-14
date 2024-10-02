@@ -52,9 +52,9 @@ class QuestionAnsweringTrainer(Trainer):
         self.max_answer_length = max_answer_length
         self.answer_column_name = answer_column_name
         self.metric = load_metric("squad")
-        self.setup_data_collator()
+        self.setup()
 
-    def setup_data_collator(self):
+    def setup(self):
         """
         Data Collator를 설정합니다.
 
@@ -66,8 +66,9 @@ class QuestionAnsweringTrainer(Trainer):
             self.tokenizer,
             pad_to_multiple_of=8 if self.args.fp16 else None,
         )
+        self.compute_metrics = self.compute_metrics_fn
 
-    def compute_metrics(self, p: EvalPrediction):
+    def compute_metrics_fn(self, p: EvalPrediction):
         return self.metric.compute(predictions=p.predictions, references=p.label_ids)
 
     def post_process_function(
@@ -90,7 +91,7 @@ class QuestionAnsweringTrainer(Trainer):
         elif self.args.do_eval:
             references = [
                 {"id": ex["id"], "answers": ex[self.answer_column_name]}
-                for ex in datasets["validation"]
+                for ex in examples
             ]
             return EvalPrediction(
                 predictions=formatted_predictions, label_ids=references

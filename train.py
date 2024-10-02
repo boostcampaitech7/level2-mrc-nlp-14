@@ -234,6 +234,7 @@ def run_mrc(
         eval_dataset=eval_dataset if training_args.do_eval else None,
         eval_examples=datasets["validation"] if training_args.do_eval else None,
         max_answer_length=data_args.max_answer_length,
+        answer_column_name=answer_column_name,
         tokenizer=tokenizer,
     )
 
