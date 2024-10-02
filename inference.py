@@ -10,7 +10,7 @@ from typing import Callable, Dict, List, NoReturn, Tuple
 
 import numpy as np
 from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
-from model import QuestionAnsweringModel
+from model import QuestionAnsweringModelLoader
 from datasets import (
     Dataset,
     DatasetDict,
@@ -57,15 +57,9 @@ def main():
     set_seed(training_args.seed)
 
     datasets = load_from_disk(data_args.dataset_name)
-    tokenizer = AutoTokenizer.from_pretrained(
-        (
-            model_args.tokenizer_name
-            if model_args.tokenizer_name
-            else model_args.model_name_or_path
-        ),
-        use_fast=True,
-    )
-    model = QuestionAnsweringModel(model_args)
+
+    model_loader = QuestionAnsweringModelLoader(model_args)
+    model, tokenizer = model_loader.get_model_tokenizer()
 
     # True일 경우 : run passage retrieval
     if data_args.eval_retrieval:

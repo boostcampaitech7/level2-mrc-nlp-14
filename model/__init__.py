@@ -1,1 +1,1 @@
-from .qa_model import *
+from .qa_model_loader import *

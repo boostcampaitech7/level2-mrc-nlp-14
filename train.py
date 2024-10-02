@@ -5,7 +5,7 @@ from typing import NoReturn
 import wandb
 
 from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
-from model import QuestionAnsweringModel
+from model import QuestionAnsweringModelLoader
 from datasets import DatasetDict, load_from_disk, load_metric
 from trainer import QuestionAnsweringTrainer
 from transformers import (
@@ -47,15 +47,9 @@ def main():
     set_seed(training_args.seed)
 
     datasets = load_from_disk(data_args.dataset_name)
-    tokenizer = AutoTokenizer.from_pretrained(
-        (
-            model_args.tokenizer_name
-            if model_args.tokenizer_name is not None
-            else model_args.model_name_or_path
-        ),
-        use_fast=True,  # rust version tokenizer 사용 여부(좀 더 빠름)
-    )
-    model = QuestionAnsweringModel(model_args)
+
+    model_loader = QuestionAnsweringModelLoader(model_args)
+    model, tokenizer = model_loader.get_model_tokenizer()
 
     # do_train mrc model 혹은 do_eval mrc model
     if training_args.do_train or training_args.do_eval:
