@@ -16,8 +16,18 @@
 Question-Answering task와 관련된 'Trainer'의 subclass 코드 입니다.
 """
 
-from transformers import Trainer, is_datasets_available, is_torch_tpu_available
-from transformers.trainer_utils import PredictionOutput
+from typing import Tuple
+import numpy as np
+
+from transformers import (
+    Trainer,
+    EvalPrediction,
+    DataCollatorWithPadding,
+    is_datasets_available,
+    is_torch_tpu_available,
+)
+from datasets import load_metric
+from utils_qa import postprocess_qa_predictions
 
 if is_datasets_available():
     import datasets
@@ -26,12 +36,65 @@ if is_torch_tpu_available():
     import torch_xla.core.xla_model as xm
     import torch_xla.debug.metrics as met
 
+
 # Huggingface의 Trainer를 상속받아 QuestionAnswering을 위한 Trainer를 생성합니다.
 class QuestionAnsweringTrainer(Trainer):
-    def __init__(self, *args, eval_examples=None, post_process_function=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        eval_examples=None,
+        max_answer_length=512,
+        answer_column_name=None,
+        **kwargs
+    ):
         super().__init__(*args, **kwargs)
         self.eval_examples = eval_examples
-        self.post_process_function = post_process_function
+        self.max_answer_length = max_answer_length
+        self.answer_column_name = answer_column_name
+        self.metric = load_metric("squad")
+        self.setup_data_collator()
+
+    def setup_data_collator(self):
+        """
+        Data Collator를 설정합니다.
+
+        flag가 True이면 데이터가 이미 max_length로 padding되어 있습니다.
+        그렇지 않으면 Data Collator가 패딩을 수행합니다.
+        Data Collator는 제공된 토크나이저를 사용하며, fp16이 활성화된 경우 8의 배수로 padding합니다.
+        """
+        self.data_collator = DataCollatorWithPadding(
+            self.tokenizer,
+            pad_to_multiple_of=8 if self.args.fp16 else None,
+        )
+
+    def compute_metrics(self, p: EvalPrediction):
+        return self.metric.compute(predictions=p.predictions, references=p.label_ids)
+
+    def post_process_function(
+        self, examples, features, predictions: Tuple[np.ndarray, np.ndarray]
+    ) -> EvalPrediction:
+        # Post-processing: start logits과 end logits을 original context의 정답과 match시킵니다.
+        predictions = postprocess_qa_predictions(
+            examples=examples,
+            features=features,
+            predictions=predictions,
+            max_answer_length=self.max_answer_length,
+            output_dir=self.args.output_dir,
+        )
+        # Metric을 구할 수 있도록 Format을 맞춰줍니다.
+        formatted_predictions = [
+            {"id": k, "prediction_text": v} for k, v in predictions.items()
+        ]
+        if self.args.do_predict:
+            return formatted_predictions
+        elif self.args.do_eval:
+            references = [
+                {"id": ex["id"], "answers": ex[self.answer_column_name]}
+                for ex in datasets["validation"]
+            ]
+            return EvalPrediction(
+                predictions=formatted_predictions, label_ids=references
+            )
 
     def evaluate(self, eval_dataset=None, eval_examples=None, ignore_keys=None):
         eval_dataset = self.eval_dataset if eval_dataset is None else eval_dataset
@@ -61,7 +124,7 @@ class QuestionAnsweringTrainer(Trainer):
 
         if self.post_process_function is not None and self.compute_metrics is not None:
             eval_preds = self.post_process_function(
-                eval_examples, eval_dataset, output.predictions, self.args
+                eval_examples, eval_dataset, output.predictions
             )
             metrics = self.compute_metrics(eval_preds)
 
@@ -107,6 +170,6 @@ class QuestionAnsweringTrainer(Trainer):
             )
 
         predictions = self.post_process_function(
-            test_examples, test_dataset, output.predictions, self.args
+            test_examples, test_dataset, output.predictions
         )
         return predictions

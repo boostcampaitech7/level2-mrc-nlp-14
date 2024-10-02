@@ -6,16 +6,14 @@ import wandb
 
 from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
 from model import QuestionAnsweringModelLoader
-from datasets import DatasetDict, load_from_disk, load_metric
+from datasets import DatasetDict, load_from_disk
 from trainer import QuestionAnsweringTrainer
 from transformers import (
     AutoTokenizer,
-    DataCollatorWithPadding,
-    EvalPrediction,
     HfArgumentParser,
     set_seed,
 )
-from utils_qa import check_no_error, postprocess_qa_predictions
+from utils_qa import check_no_error
 
 wandb.init(project="MRC", entity="word-maestro")
 
@@ -228,44 +226,6 @@ def run_mrc(
             load_from_cache_file=not data_args.overwrite_cache,
         )
 
-    # Data collator
-    # flag가 True이면 이미 max length로 padding된 상태입니다.
-    # 그렇지 않다면 data collator에서 padding을 진행해야합니다.
-    data_collator = DataCollatorWithPadding(
-        tokenizer, pad_to_multiple_of=8 if training_args.fp16 else None
-    )
-
-    # Post-processing:
-    def post_processing_function(examples, features, predictions, training_args):
-        # Post-processing: start logits과 end logits을 original context의 정답과 match시킵니다.
-        predictions = postprocess_qa_predictions(
-            examples=examples,
-            features=features,
-            predictions=predictions,
-            max_answer_length=data_args.max_answer_length,
-            output_dir=training_args.output_dir,
-        )
-        # Metric을 구할 수 있도록 Format을 맞춰줍니다.
-        formatted_predictions = [
-            {"id": k, "prediction_text": v} for k, v in predictions.items()
-        ]
-        if training_args.do_predict:
-            return formatted_predictions
-
-        elif training_args.do_eval:
-            references = [
-                {"id": ex["id"], "answers": ex[answer_column_name]}
-                for ex in datasets["validation"]
-            ]
-            return EvalPrediction(
-                predictions=formatted_predictions, label_ids=references
-            )
-
-    metric = load_metric("squad")
-
-    def compute_metrics(p: EvalPrediction):
-        return metric.compute(predictions=p.predictions, references=p.label_ids)
-
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(
         model=model,
@@ -273,10 +233,8 @@ def run_mrc(
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         eval_examples=datasets["validation"] if training_args.do_eval else None,
+        max_answer_length=data_args.max_answer_length,
         tokenizer=tokenizer,
-        data_collator=data_collator,
-        post_process_function=post_processing_function,
-        compute_metrics=compute_metrics,
     )
 
     # Training

@@ -6,9 +6,8 @@ Open-Domain Question Answering 을 수행하는 inference 코드 입니다.
 
 import logging
 import sys
-from typing import Callable, Dict, List, NoReturn, Tuple
+from typing import Callable, List, NoReturn
 
-import numpy as np
 from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
 from model import QuestionAnsweringModelLoader
 from datasets import (
@@ -18,18 +17,15 @@ from datasets import (
     Sequence,
     Value,
     load_from_disk,
-    load_metric,
 )
 from retrieval import SparseRetrieval
 from trainer import QuestionAnsweringTrainer
 from transformers import (
     AutoTokenizer,
-    DataCollatorWithPadding,
-    EvalPrediction,
     HfArgumentParser,
     set_seed,
 )
-from utils_qa import check_no_error, postprocess_qa_predictions
+from utils_qa import check_no_error
 
 logger = logging.getLogger(__name__)
 
@@ -205,50 +201,6 @@ def run_mrc(
         load_from_cache_file=not data_args.overwrite_cache,
     )
 
-    # Data collator
-    # flag가 True이면 이미 max length로 padding된 상태입니다.
-    # 그렇지 않다면 data collator에서 padding을 진행해야합니다.
-    data_collator = DataCollatorWithPadding(
-        tokenizer, pad_to_multiple_of=8 if training_args.fp16 else None
-    )
-
-    # Post-processing:
-    def post_processing_function(
-        examples,
-        features,
-        predictions: Tuple[np.ndarray, np.ndarray],
-        training_args: CustomTrainingArguments,
-    ) -> EvalPrediction:
-        # Post-processing: start logits과 end logits을 original context의 정답과 match시킵니다.
-        predictions = postprocess_qa_predictions(
-            examples=examples,
-            features=features,
-            predictions=predictions,
-            max_answer_length=data_args.max_answer_length,
-            output_dir=training_args.output_dir,
-        )
-        # Metric을 구할 수 있도록 Format을 맞춰줍니다.
-        formatted_predictions = [
-            {"id": k, "prediction_text": v} for k, v in predictions.items()
-        ]
-
-        if training_args.do_predict:
-            return formatted_predictions
-        elif training_args.do_eval:
-            references = [
-                {"id": ex["id"], "answers": ex[answer_column_name]}
-                for ex in datasets["validation"]
-            ]
-
-            return EvalPrediction(
-                predictions=formatted_predictions, label_ids=references
-            )
-
-    metric = load_metric("squad")
-
-    def compute_metrics(p: EvalPrediction) -> Dict:
-        return metric.compute(predictions=p.predictions, references=p.label_ids)
-
     print("init trainer...")
     # Trainer 초기화
     trainer = QuestionAnsweringTrainer(
@@ -257,10 +209,8 @@ def run_mrc(
         train_dataset=None,
         eval_dataset=eval_dataset,
         eval_examples=datasets["validation"],
+        max_answer_length=data_args.max_answer_length,
         tokenizer=tokenizer,
-        data_collator=data_collator,
-        post_process_function=post_processing_function,
-        compute_metrics=compute_metrics,
     )
 
     logger.info("*** Evaluate ***")
