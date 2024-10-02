@@ -25,7 +25,7 @@ from transformers import (
     HfArgumentParser,
     set_seed,
 )
-from utils_qa import check_no_error
+from utils import check_no_error
 
 logger = logging.getLogger(__name__)
 

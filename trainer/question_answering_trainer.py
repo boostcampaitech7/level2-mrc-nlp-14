@@ -27,7 +27,7 @@ from transformers import (
     is_torch_tpu_available,
 )
 from datasets import load_metric
-from utils_qa import postprocess_qa_predictions
+from utils import postprocess_qa_predictions
 
 if is_datasets_available():
     import datasets

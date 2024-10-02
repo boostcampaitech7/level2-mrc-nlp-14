@@ -13,7 +13,7 @@ from transformers import (
     HfArgumentParser,
     set_seed,
 )
-from utils_qa import check_no_error
+from utils import check_no_error
 
 wandb.init(project="MRC", entity="word-maestro")
 

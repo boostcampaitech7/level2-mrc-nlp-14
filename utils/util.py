@@ -20,11 +20,9 @@ import collections
 import json
 import logging
 import os
-import random
 from typing import Any, Optional, Tuple
 
 import numpy as np
-import torch
 from args import DataTrainingArguments, ModelArguments
 from datasets import DatasetDict
 from tqdm.auto import tqdm
@@ -32,23 +30,6 @@ from transformers import PreTrainedTokenizerFast, TrainingArguments, is_torch_av
 from transformers.trainer_utils import get_last_checkpoint
 
 logger = logging.getLogger(__name__)
-
-
-def set_seed(seed: int = 42):
-    """
-    seed 고정하는 함수 (random, numpy, torch)
-
-    Args:
-        seed (:obj:`int`): The seed to set.
-    """
-    random.seed(seed)
-    np.random.seed(seed)
-    if is_torch_available():
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)  # if use multi-GPU
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
 
 
 def postprocess_qa_predictions(
@@ -251,7 +232,9 @@ def postprocess_qa_predictions(
                 - best_non_null_pred["start_logit"]
                 - best_non_null_pred["end_logit"]
             )
-            scores_diff_json[example["id"]] = float(score_diff)  # JSON-serializable 가능
+            scores_diff_json[example["id"]] = float(
+                score_diff
+            )  # JSON-serializable 가능
             if score_diff > null_score_diff_threshold:
                 all_predictions[example["id"]] = ""
             else:
@@ -280,9 +263,11 @@ def postprocess_qa_predictions(
         )
         nbest_file = os.path.join(
             output_dir,
-            "nbest_predictions.json"
-            if prefix is None
-            else f"nbest_predictions_{prefix}".json,
+            (
+                "nbest_predictions.json"
+                if prefix is None
+                else f"nbest_predictions_{prefix}".json
+            ),
         )
         if version_2_with_negative:
             null_odds_file = os.path.join(
