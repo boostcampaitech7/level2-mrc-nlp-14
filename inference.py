@@ -19,7 +19,7 @@ from datasets import (
     Value,
     load_from_disk,
 )
-from retrieval import SparseRetrieval
+from retriever import TFIDFRetrieval
 from trainer import QuestionAnsweringTrainer
 from transformers import (
     HfArgumentParser,
@@ -81,7 +81,7 @@ def run_sparse_retrieval(
 ) -> DatasetDict:
 
     # Query에 맞는 Passage들을 Retrieval 합니다.
-    retriever = SparseRetrieval(
+    retriever = TFIDFRetrieval(
         tokenize_fn=tokenize_fn, data_path=data_path, context_path=context_path
     )
     retriever.get_sparse_embedding()

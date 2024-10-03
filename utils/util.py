@@ -23,13 +23,23 @@ import os
 from typing import Any, Optional, Tuple
 
 import numpy as np
-from args import DataTrainingArguments, ModelArguments
+from args import DataTrainingArguments
 from datasets import DatasetDict
 from tqdm.auto import tqdm
-from transformers import PreTrainedTokenizerFast, TrainingArguments, is_torch_available
+from transformers import PreTrainedTokenizerFast, TrainingArguments
 from transformers.trainer_utils import get_last_checkpoint
 
+import time
+from contextlib import contextmanager
+
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def timer(name):
+    t0 = time.time()
+    yield
+    print(f"[{name}] done in {time.time() - t0:.3f} s")
 
 
 def postprocess_qa_predictions(
