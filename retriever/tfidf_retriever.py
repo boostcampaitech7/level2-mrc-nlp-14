@@ -3,7 +3,6 @@ import os
 import pickle
 from typing import List, NoReturn, Optional, Tuple, Union
 
-import faiss
 import numpy as np
 import pandas as pd
 from datasets import Dataset
@@ -41,8 +40,9 @@ class TFIDFRetriever(BaseRetriever):
         Summary:
             Passage 파일을 불러오고 TfidfVectorizer를 선언하는 기능을 합니다.
         """
+        # BaseRetriever의 생성자를 호출하여 data_path를 초기화
+        super().__init__(data_path)
 
-        self.data_path = data_path
         with open(os.path.join(data_path, context_path), "r", encoding="utf-8") as f:
             wiki = json.load(f)
 
@@ -58,9 +58,6 @@ class TFIDFRetriever(BaseRetriever):
             ngram_range=(1, 2),
             max_features=50000,
         )
-
-        self.p_embedding = None  # get_sparse_embedding()로 생성합니다
-        self.indexer = None  # build_faiss()로 생성합니다.
 
         self.get_sparse_embedding()
 
@@ -93,42 +90,6 @@ class TFIDFRetriever(BaseRetriever):
             with open(tfidfv_path, "wb") as file:
                 pickle.dump(self.tfidfv, file)
             print("Embedding pickle saved.")
-
-    def build_faiss(self, num_clusters=64) -> NoReturn:
-        """
-        Summary:
-            속성으로 저장되어 있는 Passage Embedding을
-            Faiss indexer에 fitting 시켜놓습니다.
-            이렇게 저장된 indexer는 `get_relevant_doc`에서 유사도를 계산하는데 사용됩니다.
-
-        Note:
-            Faiss는 Build하는데 시간이 오래 걸리기 때문에,
-            매번 새롭게 build하는 것은 비효율적입니다.
-            그렇기 때문에 build된 index 파일을 저정하고 다음에 사용할 때 불러옵니다.
-            다만 이 index 파일은 용량이 1.4Gb+ 이기 때문에 여러 num_clusters로 시험해보고
-            제일 적절한 것을 제외하고 모두 삭제하는 것을 권장합니다.
-        """
-
-        indexer_name = f"faiss_clusters{num_clusters}.index"
-        indexer_path = os.path.join(self.data_path, indexer_name)
-        if os.path.isfile(indexer_path):
-            print("Load Saved Faiss Indexer.")
-            self.indexer = faiss.read_index(indexer_path)
-
-        else:
-            p_emb = self.p_embedding.astype(np.float32).toarray()
-            emb_dim = p_emb.shape[-1]
-
-            num_clusters = num_clusters
-            quantizer = faiss.IndexFlatL2(emb_dim)
-
-            self.indexer = faiss.IndexIVFScalarQuantizer(
-                quantizer, quantizer.d, num_clusters, faiss.METRIC_L2
-            )
-            self.indexer.train(p_emb)
-            self.indexer.add(p_emb)
-            faiss.write_index(self.indexer, indexer_path)
-            print("Faiss Indexer Saved.")
 
     def retrieve(
         self, query_or_dataset: Union[str, Dataset], topk: Optional[int] = 1
