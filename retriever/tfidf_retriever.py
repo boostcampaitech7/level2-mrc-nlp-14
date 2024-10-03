@@ -11,9 +11,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from tqdm.auto import tqdm
 
 from utils import timer
+from base import BaseRetriever
 
 
-class TFIDFRetrieval:
+class TFIDFRetriever(BaseRetriever):
     def __init__(
         self,
         tokenize_fn,

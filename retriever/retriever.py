@@ -1,4 +1,4 @@
-from .tfidf_retriever import TFIDFRetrieval
+from .tfidf_retriever import TFIDFRetriever
 from typing import Optional, Callable, List
 from datasets import (
     Dataset,
@@ -8,6 +8,7 @@ from datasets import (
     Value,
 )
 from args import DataTrainingArguments, CustomTrainingArguments
+from base import BaseRetriever
 
 
 def create_retriever(
@@ -15,9 +16,9 @@ def create_retriever(
     data_path: Optional[str] = "./data/",
     context_path: Optional[str] = "wikipedia_documents.json",
     type="tfidf",
-):
+) -> BaseRetriever:
     if type == "tfidf":
-        return TFIDFRetrieval(tokenize_fn, data_path, context_path)
+        return TFIDFRetriever(tokenize_fn, data_path, context_path)
     elif type == "bm25":
         raise NotImplementedError
     else:
