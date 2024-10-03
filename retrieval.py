@@ -3,7 +3,7 @@ import random
 import numpy as np
 from datasets import concatenate_datasets, load_from_disk
 
-from retriever import TFIDFRetrieval
+from retriever import create_retriever
 from utils import timer
 import argparse
 from transformers import AutoTokenizer
@@ -30,6 +30,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--use_faiss", metavar=False, type=bool, help="")
 
+    parser.add_argument("--retrieval_type", metavar="tfidf", type=str, help="")
+
     args = parser.parse_args()
 
     # Test sparse
@@ -48,10 +50,11 @@ if __name__ == "__main__":
         use_fast=False,
     )
 
-    retriever = TFIDFRetrieval(
+    retriever = create_retriever(
         tokenize_fn=tokenizer.tokenize,
         data_path=args.data_path,
         context_path=args.context_path,
+        type=args.retrieval_type,
     )
 
     query = "대통령을 포함한 미국의 행정부 견제권을 갖는 국가 기관은?"

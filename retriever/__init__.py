@@ -1,1 +1,1 @@
-from .tfidf_retriever import *
+from .retriever import *
