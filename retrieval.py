@@ -30,7 +30,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--use_faiss", metavar=False, type=bool, help="")
 
-    parser.add_argument("--retrieval_type", metavar="tfidf", type=str, help="")
+    parser.add_argument("--retrieval_type", metavar="sparse", type=str, help="")
+    parser.add_argument("--embedding_type", metavar="tfidf", type=str, help="")
 
     args = parser.parse_args()
 
@@ -54,7 +55,8 @@ if __name__ == "__main__":
         tokenize_fn=tokenizer.tokenize,
         data_path=args.data_path,
         context_path=args.context_path,
-        type=args.retrieval_type,
+        retrieval_type=args.retrieval_type,
+        embedding_type=args.embedding_type,
     )
 
     query = "대통령을 포함한 미국의 행정부 견제권을 갖는 국가 기관은?"
