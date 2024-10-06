@@ -1,4 +1,4 @@
-from .tfidf_retriever import TFIDFRetriever
+from .sparse_retriever import SparseRetriever
 from typing import Optional, Callable, List
 from datasets import (
     Dataset,
@@ -15,11 +15,14 @@ def create_retriever(
     tokenize_fn,
     data_path: Optional[str] = "./data/",
     context_path: Optional[str] = "wikipedia_documents.json",
-    type="tfidf",
+    retrieval_type="sparse",
+    embedding_type="tfidf",
 ) -> BaseRetriever:
-    if type == "tfidf":
-        return TFIDFRetriever(tokenize_fn, data_path, context_path)
-    elif type == "bm25":
+    if retrieval_type == "sparse":
+        return SparseRetriever(embedding_type, tokenize_fn, data_path, context_path)
+    elif retrieval_type == "dense":
+        # TODO: 나중에 DenseRetriever 클래스 만들면, retrieval_type == "dense" 부분 추가하면 된다
+        # return DenseRetriever(embedding_type, tokenize_fn, data_path, context_path)
         raise NotImplementedError
     else:
         raise ValueError(f"Invalid retriever type: {type}")
@@ -39,7 +42,8 @@ def run_sparse_retrieval(
         tokenize_fn=tokenize_fn,
         data_path=data_path,
         context_path=context_path,
-        type=data_args.retrieval_type,
+        retrieval_type=data_args.retrieval_type,
+        embedding_type=data_args.embedding_type,
     )
 
     if data_args.use_faiss:
