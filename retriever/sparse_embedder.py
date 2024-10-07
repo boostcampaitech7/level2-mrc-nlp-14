@@ -11,7 +11,6 @@ class TfidfEmbedder(BaseEmbedder):
         self.vectorizer = TfidfVectorizer(
             tokenizer=tokenize_fn, ngram_range=(1, 2), max_features=max_features
         )
-        self.p_embedding = None
 
     def fit_transform(self, raw_documents):
         # TfidfVectorizer는 iterable을 받으므로 타입을 명시할 필요 없음
@@ -30,7 +29,6 @@ class CountEmbedder(BaseEmbedder):
         self.vectorizer = CountVectorizer(
             tokenizer=tokenize_fn, ngram_range=(1, 2), max_features=max_features
         )
-        self.p_embedding = None
 
     def fit_transform(self, raw_documents):
         self.p_embedding = self.vectorizer.fit_transform(raw_documents)
