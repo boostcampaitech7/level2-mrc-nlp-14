@@ -65,6 +65,12 @@ class DataTrainingArguments:
         default=False, metadata={"help": "Whether to build with faiss"}
     )
     retrieval_type: str = field(
+        default="sparse",
+        metadata={"help": "Define which retrieval method to use. (sparse, dense)"},
+    )
+    embedding_type: str = field(
         default="tfidf",
-        metadata={"help": "Define which retrieval method to use. (tfidf, bm25)"},
+        metadata={
+            "help": "Define which embedding method to use. (tfidf, count, hash, bm25)"
+        },
     )

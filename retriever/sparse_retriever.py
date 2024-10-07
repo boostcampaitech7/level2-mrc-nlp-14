@@ -6,16 +6,18 @@ from typing import List, NoReturn, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from datasets import Dataset
-from sklearn.feature_extraction.text import TfidfVectorizer
 from tqdm.auto import tqdm
 
 from utils import timer
 from base import BaseRetriever
 
+from .sparse_embedder import TfidfEmbedder, CountEmbedder, HashEmbedder
 
-class TFIDFRetriever(BaseRetriever):
+
+class SparseRetriever(BaseRetriever):
     def __init__(
         self,
+        embedding_type: str,
         tokenize_fn,
         data_path: Optional[str] = "./data/",
         context_path: Optional[str] = "wikipedia_documents.json",
@@ -52,12 +54,18 @@ class TFIDFRetriever(BaseRetriever):
         print(f"Lengths of unique contexts : {len(self.contexts)}")
         self.ids = list(range(len(self.contexts)))
 
-        # Transform by vectorizer
-        self.tfidfv = TfidfVectorizer(
-            tokenizer=tokenize_fn,
-            ngram_range=(1, 2),
-            max_features=50000,
-        )
+        # str으로 들어온 embedding type (ex: "tfidf")
+        self.embedding_type = embedding_type
+
+        if embedding_type == "tfidf":
+            # embedder.vectorizer()로 vectorizer에 접근 가능
+            self.embedder = TfidfEmbedder(tokenize_fn, max_features=50000)
+        elif embedding_type == "count":
+            self.embedder = CountEmbedder(tokenize_fn, max_features=50000)
+        elif embedding_type == "hash":
+            self.embedder = HashEmbedder(tokenize_fn, n_features=50000)
+        else:
+            raise ValueError(f"Invalid retriever type: {type}")
 
         self.get_sparse_embedding()
 
@@ -65,31 +73,39 @@ class TFIDFRetriever(BaseRetriever):
         """
         Summary:
             Passage Embedding을 만들고
-            TFIDF와 Embedding을 pickle로 저장합니다.
+            Embedding과 Embedder를 pickle로 저장합니다.
             만약 미리 저장된 파일이 있으면 저장된 pickle을 불러옵니다.
         """
 
         # Pickle을 저장합니다.
-        pickle_name = f"sparse_embedding.bin"
-        tfidfv_name = f"tfidv.bin"
-        emd_path = os.path.join(self.data_path, pickle_name)
-        tfidfv_path = os.path.join(self.data_path, tfidfv_name)
+        # pickle_name에는 passage를 임베딩한 결과를 저장
+        pickle_name = f"sparse_embedding_{self.embedding_type}.bin"
+        # embedder_name에는 임베딩하는 객체를 저장
+        embedder_name = f"sparse_embedder_{self.embedding_type}.bin"
 
-        if os.path.isfile(emd_path) and os.path.isfile(tfidfv_path):
-            with open(emd_path, "rb") as file:
+        embedding_path = os.path.join(self.data_path, pickle_name)
+        embedder_path = os.path.join(self.data_path, embedder_name)
+
+        # 기존 임베딩(과 임베더)가 있으면 불러오기
+        if os.path.isfile(embedding_path) and os.path.isfile(embedder_path):
+            with open(embedding_path, "rb") as file:
+                # passage embedding 불러오기
                 self.p_embedding = pickle.load(file)
-            with open(tfidfv_path, "rb") as file:
-                self.tfidfv = pickle.load(file)
-            print("Embedding pickle load.")
+            with open(embedder_path, "rb") as file:
+                # passage embedder 불러오기
+                self.embedder = pickle.load(file)
+            print("Embedding and Embedder pickle load.")
+
+        # 기존 임베딩(과 임베더)가 없으면 임베딩/임베더 저장
         else:
-            print("Build passage embedding")
-            self.p_embedding = self.tfidfv.fit_transform(self.contexts)
+            print(f"Build passage embedding by {self.embedding_type} vectorizer...")
+            self.p_embedding = self.embedder.fit_transform(self.contexts)
             print(self.p_embedding.shape)
-            with open(emd_path, "wb") as file:
+            with open(embedding_path, "wb") as file:
                 pickle.dump(self.p_embedding, file)
-            with open(tfidfv_path, "wb") as file:
-                pickle.dump(self.tfidfv, file)
-            print("Embedding pickle saved.")
+            with open(embedder_path, "wb") as file:
+                pickle.dump(self.embedder, file)
+            print("Embedding and Embedder pickle saved.")
 
     def retrieve(
         self, query_or_dataset: Union[str, Dataset], topk: Optional[int] = 1
@@ -169,15 +185,19 @@ class TFIDFRetriever(BaseRetriever):
         """
 
         with timer("transform"):
-            query_vec = self.tfidfv.transform([query])
+            query_vec = self.embedder.transform([query])
         assert (
             np.sum(query_vec) != 0
         ), "오류가 발생했습니다. 이 오류는 보통 query에 vectorizer의 vocab에 없는 단어만 존재하는 경우 발생합니다."
 
         with timer("query ex search"):
+            # dot Product로 유사도 계산
             result = query_vec * self.p_embedding.T
+        # result가 sparse matrix 형태일 경우, dense matrix로 바꿔줌
+        # dense matrix는 모든 element를 직접 저장하는 행렬
         if not isinstance(result, np.ndarray):
             result = result.toarray()
+            # 그래야 후속 처리에서 유리한가 봄
 
         sorted_result = np.argsort(result.squeeze())[::-1]
         doc_score = result.squeeze()[sorted_result].tolist()[:k]
@@ -197,7 +217,7 @@ class TFIDFRetriever(BaseRetriever):
             vocab 에 없는 이상한 단어로 query 하는 경우 assertion 발생 (예) 뙣뙇?
         """
 
-        query_vec = self.tfidfv.transform(queries)
+        query_vec = self.embedder.transform(queries)
         assert (
             np.sum(query_vec) != 0
         ), "오류가 발생했습니다. 이 오류는 보통 query에 vectorizer의 vocab에 없는 단어만 존재하는 경우 발생합니다."
@@ -294,7 +314,7 @@ class TFIDFRetriever(BaseRetriever):
             vocab 에 없는 이상한 단어로 query 하는 경우 assertion 발생 (예) 뙣뙇?
         """
 
-        query_vec = self.tfidfv.transform([query])
+        query_vec = self.embedder.transform([query])
         assert (
             np.sum(query_vec) != 0
         ), "오류가 발생했습니다. 이 오류는 보통 query에 vectorizer의 vocab에 없는 단어만 존재하는 경우 발생합니다."
@@ -318,7 +338,7 @@ class TFIDFRetriever(BaseRetriever):
             vocab 에 없는 이상한 단어로 query 하는 경우 assertion 발생 (예) 뙣뙇?
         """
 
-        query_vecs = self.tfidfv.transform(queries)
+        query_vecs = self.embedder.transform(queries)
         assert (
             np.sum(query_vecs) != 0
         ), "오류가 발생했습니다. 이 오류는 보통 query에 vectorizer의 vocab에 없는 단어만 존재하는 경우 발생합니다."
