@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 from utils import timer
 from base import BaseRetriever
 
-from .sparse_embedder import *
+from .sparse_embedder import TfidfEmbedder, CountEmbedder, HashEmbedder
 
 
 class SparseRetriever(BaseRetriever):
@@ -56,8 +56,6 @@ class SparseRetriever(BaseRetriever):
 
         # str으로 들어온 embedding type (ex: "tfidf")
         self.embedding_type = embedding_type
-        # self.vectorizer = None
-        self.embedder = None
 
         if embedding_type == "tfidf":
             # embedder.vectorizer()로 vectorizer에 접근 가능
@@ -82,7 +80,7 @@ class SparseRetriever(BaseRetriever):
         # Pickle을 저장합니다.
         # pickle_name에는 passage를 임베딩한 결과를 저장
         pickle_name = f"sparse_embedding_{self.embedding_type}.bin"
-        # vectorizer_name에는 임베딩하는 객체를 저장
+        # embedder_name에는 임베딩하는 객체를 저장
         embedder_name = f"sparse_embedder_{self.embedding_type}.bin"
 
         embedding_path = os.path.join(self.data_path, pickle_name)
