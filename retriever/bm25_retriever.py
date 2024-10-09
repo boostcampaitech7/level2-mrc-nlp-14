@@ -1,5 +1,6 @@
 import json
 import os
+import pickle
 from typing import List, NoReturn, Optional, Tuple, Union
 
 import numpy as np
@@ -50,13 +51,25 @@ class BM25Retriever(BaseRetriever):
         print(f"Lengths of unique contexts : {len(self.contexts)}")
         self.ids = list(range(len(self.contexts)))
 
-        # Transform by vectorizer
-        self.tokenized_contexts = [self.tokenize_fn(text) for text in self.contexts]
-        self.BM25 = BM25Okapi(self.tokenized_contexts)
+        self.get_bm25()
 
-    # bin 파일 저장
-    # TODO : embedding / embedder 저장하는 코드 구현해야 함..
-    # 안그러면 bm25 돌릴 때마다 passage embedding 새로 해야 함
+    def get_bm25(self) -> None:
+
+        self.embedder_path = os.path.join(self.data_path, "sparse_embedder_bm25.bin")
+
+        if os.path.isfile(self.embedder_path):
+            with open(self.embedder_path, "rb") as file:
+                self.BM25 = pickle.load(file)
+
+            print("BM25 embeddings loaded from pickle files.")
+        else:
+            print("Building BM25 embedder...")
+
+            self.BM25 = BM25Okapi([self.tokenize_fn(text) for text in self.contexts])
+            with open(self.embedder_path, "wb") as file:
+                pickle.dump(self.BM25, file)
+
+            print("BM25 embeddings saved to pickle files.")
 
     def get_relevant_doc(self, query: str, k: Optional[int] = 1) -> Tuple[List, List]:
         tokenized_query = self.tokenize_fn(query)
