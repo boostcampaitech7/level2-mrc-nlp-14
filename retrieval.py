@@ -57,6 +57,7 @@ if __name__ == "__main__":
         context_path=args.context_path,
         retrieval_type=args.retrieval_type,
         embedding_type=args.embedding_type,
+        model_name_or_path=args.model_name_or_path,
     )
 
     query = "대통령을 포함한 미국의 행정부 견제권을 갖는 국가 기관은?"
