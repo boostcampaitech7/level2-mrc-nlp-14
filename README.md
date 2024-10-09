@@ -111,6 +111,15 @@ python inference.py --output_dir ./outputs/test_dataset/ --dataset_name ./data/t
 python inference.py --output_dir ./outputs/train_dataset/ --model_name_or_path ./models/train_dataset/ --do_eval
 ```
 
+### retrieval
+
+retrieval.py를 실행시키기 위해선 다음과 같이 CLI환경에 입력하시면 됩니다.
+
+```bash
+# 아래 예제는 bm25를 실행하는 예제입니다
+python retrieval.py --dataset_name ./data/train_dataset --model_name_or_path bert-base-multilingual-cased --retrieval_type sparse --embedding_type bm25 --data_path ./data --context_path wikipedia_documents.json
+```
+
 ### How to submit
 
 `inference.py` 파일을 위 예시처럼 `--do_predict` 으로 실행하면 `--output_dir` 위치에 `predictions.json` 이라는 파일이 생성됩니다. 해당 파일을 제출해주시면 됩니다.
