@@ -18,13 +18,10 @@ def create_retriever(
     context_path: Optional[str] = "wikipedia_documents.json",
     retrieval_type="sparse",
     embedding_type="tfidf",
-    model_name_or_path="bert-base-multilingual-cased",  # bm25 bin 이름에 모델 명을 포함시켜 식별하기 쉽게 하기 위해 작성
 ) -> BaseRetriever:
     if retrieval_type == "sparse":
         if embedding_type == "bm25":
-            return BM25Retriever(
-                tokenize_fn, data_path, context_path, model_name_or_path
-            )
+            return BM25Retriever(tokenize_fn, data_path, context_path)
         else:
             return SparseRetriever(embedding_type, tokenize_fn, data_path, context_path)
     elif retrieval_type == "dense":
@@ -42,7 +39,6 @@ def run_sparse_retrieval(
     data_args: DataTrainingArguments,
     data_path: str = "./data",
     context_path: str = "wikipedia_documents.json",
-    model_name_or_path: str = "bert-base-multilingual-cased",  # bm25 bin 이름에 모델 명을 포함시켜 식별하기 쉽게 하기 위해 작성
 ) -> DatasetDict:
 
     # Query에 맞는 Passage들을 Retrieval 합니다.
@@ -52,7 +48,6 @@ def run_sparse_retrieval(
         context_path=context_path,
         retrieval_type=data_args.retrieval_type,
         embedding_type=data_args.embedding_type,
-        model_name_or_path=model_name_or_path,  # bm25 bin 이름에 모델 명을 포함시켜 식별하기 쉽게 하기 위해 작성
     )
 
     if data_args.use_faiss:

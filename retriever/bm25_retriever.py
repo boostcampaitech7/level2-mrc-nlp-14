@@ -18,7 +18,6 @@ class BM25Retriever(BaseRetriever):
         tokenize_fn,
         data_path: Optional[str] = "./data/",
         context_path: Optional[str] = "wikipedia_documents.json",
-        model_name_or_path: Optional[str] = "bert-base-multilingual-cased",
     ) -> NoReturn:
         """
         Arguments:
@@ -41,7 +40,6 @@ class BM25Retriever(BaseRetriever):
             Passage 파일을 불러오고 BM25Vectorizer를 선언하는 기능을 합니다.
         """
         self.tokenize_fn = tokenize_fn
-        self.model_name_or_path = model_name_or_path
 
         self.data_path = data_path
         with open(os.path.join(data_path, context_path), "r", encoding="utf-8") as f:
@@ -53,39 +51,24 @@ class BM25Retriever(BaseRetriever):
         print(f"Lengths of unique contexts : {len(self.contexts)}")
         self.ids = list(range(len(self.contexts)))
 
-        """
-        # Transform by vectorizer
-        self.tokenized_contexts = [self.tokenize_fn(text) for text in self.contexts]
-        self.BM25 = BM25Okapi(self.tokenized_contexts)
-        """
-        self.embedding_path = os.path.join(
-            self.data_path, f"bm25_embedding_{self.model_name_or_path}.bin"
-        )
-        self.embedder_path = os.path.join(
-            self.data_path, f"bm25_embedder_{self.model_name_or_path}.bin"
-        )
-
         self.get_bm25()
 
-    # bin 파일 저장
-    # TODO : embedding / embedder 저장하는 코드 구현해야 함..
-    # 안그러면 bm25 돌릴 때마다 passage embedding 새로 해야 함
-
     def get_bm25(self) -> None:
-        if os.path.isfile(self.embedding_path) and os.path.isfile(self.embedder_path):
-            with open(self.embedding_path, "rb") as file:
-                self.tokenized_contexts = pickle.load(file)
+
+        self.embedder_path = os.path.join(self.data_path, "sparse_embedder_bm25.bin")
+
+        if os.path.isfile(self.embedder_path):
             with open(self.embedder_path, "rb") as file:
                 self.BM25 = pickle.load(file)
+
             print("BM25 embeddings loaded from pickle files.")
         else:
-            print("Building BM25 embeddings...")
-            self.tokenized_contexts = [self.tokenize_fn(text) for text in self.contexts]
-            self.BM25 = BM25Okapi(self.tokenized_contexts)
-            with open(self.embedding_path, "wb") as file:
-                pickle.dump(self.tokenized_contexts, file)
+            print("Building BM25 embedder...")
+
+            self.BM25 = BM25Okapi([self.tokenize_fn(text) for text in self.contexts])
             with open(self.embedder_path, "wb") as file:
                 pickle.dump(self.BM25, file)
+
             print("BM25 embeddings saved to pickle files.")
 
     def get_relevant_doc(self, query: str, k: Optional[int] = 1) -> Tuple[List, List]:
