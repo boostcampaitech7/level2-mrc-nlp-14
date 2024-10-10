@@ -69,8 +69,8 @@ class DataTrainingArguments:
         metadata={"help": "Define which retrieval method to use. (sparse, dense)"},
     )
     embedding_type: str = field(
-        default="tfidf",
+        default="bm25",
         metadata={
-            "help": "Define which embedding method to use. (tfidf, count, hash, bm25)"
+            "help": "Define which embedding method to use. (tfidf, count, hash, bm25) or (model_name)"
         },
     )
