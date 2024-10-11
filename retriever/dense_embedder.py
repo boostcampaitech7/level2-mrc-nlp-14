@@ -1,10 +1,6 @@
-import torch.nn.functional as F
 from transformers import (
     BertModel,
     BertPreTrainedModel,
-    AdamW,
-    TrainingArguments,
-    get_linear_schedule_with_warmup,
 )
 
 
