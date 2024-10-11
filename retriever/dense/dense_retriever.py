@@ -7,14 +7,13 @@ import pandas as pd
 from datasets import Dataset
 from tqdm.auto import tqdm
 
-import torch
 from transformers import (
     AutoTokenizer,
 )
 
 from base import BaseRetriever
 
-# from .dense_embedder import BertEmbedder
+from .dense_embedder import BertEmbedder
 
 
 class DenseRetriever(BaseRetriever):

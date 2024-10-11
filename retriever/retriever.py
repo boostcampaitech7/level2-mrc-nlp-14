@@ -1,6 +1,5 @@
 from .sparse import BM25Retriever, SparseRetriever, SparseRetrieverArguments
 from .dense import DenseRetriever, DenseRetrieverArguments
-from typing import Optional, Callable, List
 from datasets import (
     Dataset,
     DatasetDict,
