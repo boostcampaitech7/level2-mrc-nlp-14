@@ -8,9 +8,10 @@ import pandas as pd
 from datasets import Dataset
 from tqdm.auto import tqdm
 
+from transformers import AutoTokenizer
+
 from utils import timer
 from base import BaseRetriever
-
 from .sparse_embedder import TfidfEmbedder, CountEmbedder, HashEmbedder
 
 
@@ -18,7 +19,7 @@ class SparseRetriever(BaseRetriever):
     def __init__(
         self,
         embedding_type: str,
-        tokenize_fn,
+        model_args,
         data_path: Optional[str] = "./data/",
         context_path: Optional[str] = "wikipedia_documents.json",
     ) -> NoReturn:
@@ -45,6 +46,16 @@ class SparseRetriever(BaseRetriever):
         # BaseRetriever의 생성자를 호출하여 data_path를 초기화
         super().__init__(data_path)
 
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            (
+                model_args.tokenizer_name
+                if model_args.tokenizer_name is not None
+                else model_args.model_name_or_path
+            ),
+            use_fast=True,  # rust version tokenizer 사용 여부(좀 더 빠름)
+        )
+        self.tokenize_fn = self.tokenizer.tokenize
+
         with open(os.path.join(data_path, context_path), "r", encoding="utf-8") as f:
             wiki = json.load(f)
 
@@ -57,15 +68,15 @@ class SparseRetriever(BaseRetriever):
         # str으로 들어온 embedding type (ex: "tfidf")
         self.embedding_type = embedding_type
 
-        if embedding_type == "tfidf":
+        if self.embedding_type == "tfidf":
             # embedder.vectorizer()로 vectorizer에 접근 가능
-            self.embedder = TfidfEmbedder(tokenize_fn, max_features=50000)
-        elif embedding_type == "count":
-            self.embedder = CountEmbedder(tokenize_fn, max_features=50000)
-        elif embedding_type == "hash":
-            self.embedder = HashEmbedder(tokenize_fn, n_features=50000)
+            self.embedder = TfidfEmbedder(self.tokenize_fn, max_features=50000)
+        elif self.embedding_type == "count":
+            self.embedder = CountEmbedder(self.tokenize_fn, max_features=50000)
+        elif self.embedding_type == "hash":
+            self.embedder = HashEmbedder(self.tokenize_fn, n_features=50000)
         else:
-            raise ValueError(f"Invalid retriever type: {type}")
+            raise ValueError(f"Invalid retriever type: {self.embedding_type}")
 
         self.get_sparse_embedding()
 

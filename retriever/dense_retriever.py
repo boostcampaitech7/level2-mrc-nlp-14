@@ -20,7 +20,6 @@ class DenseRetriever(BaseRetriever):
     def __init__(
         self,
         embedding_type: str,
-        tokenize_fn,
         data_path: Optional[str] = "./data/",
         context_path: Optional[str] = "wikipedia_documents.json",
         use_siamese=False,

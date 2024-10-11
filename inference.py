@@ -66,8 +66,8 @@ def main():
     # 같으면 같은대로, 다르면 다른대로 기록해서 실험 결과 정리할 수 있음
     if data_args.eval_retrieval:
         datasets = run_sparse_retrieval(
-            tokenizer.tokenize,
             datasets,
+            model_args,
             training_args,
             data_args,
         )
