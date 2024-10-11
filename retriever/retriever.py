@@ -1,5 +1,6 @@
 from .sparse_retriever import SparseRetriever
 from .bm25_retriever import BM25Retriever
+from .dense_retriever import DenseRetriever
 from typing import Optional, Callable, List
 from datasets import (
     Dataset,
@@ -25,9 +26,9 @@ def create_retriever(
         else:
             return SparseRetriever(embedding_type, tokenize_fn, data_path, context_path)
     elif retrieval_type == "dense":
-        # TODO: 나중에 DenseRetriever 클래스 만들면, retrieval_type == "dense" 부분 추가하면 된다
-        # return DenseRetriever(embedding_type, tokenize_fn, data_path, context_path)
-        raise NotImplementedError
+        return DenseRetriever(
+            embedding_type, tokenize_fn, data_path, context_path, use_siamese=False
+        )
     else:
         raise ValueError(f"Invalid retriever type: {type}")
 
