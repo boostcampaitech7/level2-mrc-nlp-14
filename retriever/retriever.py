@@ -1,6 +1,5 @@
-from .sparse_retriever import SparseRetriever
-from .bm25_retriever import BM25Retriever
-from .dense_retriever import DenseRetriever
+from .sparse import BM25Retriever, SparseRetriever, SparseRetrieverArguments
+from .dense import DenseRetriever, DenseRetrieverArguments
 from typing import Optional, Callable, List
 from datasets import (
     Dataset,
@@ -11,8 +10,6 @@ from datasets import (
 )
 from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
 from base import BaseRetriever
-from .dense_retriever_args import DenseRetrieverArguments
-from .sparse_retriever_args import SparseRetrieverArguments
 
 
 def create_retriever(

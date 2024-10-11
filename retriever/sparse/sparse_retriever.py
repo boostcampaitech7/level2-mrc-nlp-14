@@ -12,6 +12,7 @@ from transformers import AutoTokenizer
 
 from utils import timer
 from base import BaseRetriever
+
 from .sparse_embedder import TfidfEmbedder, CountEmbedder, HashEmbedder
 
 

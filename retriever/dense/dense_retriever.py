@@ -13,7 +13,8 @@ from transformers import (
 )
 
 from base import BaseRetriever
-from .dense_embedder import BertEmbedder
+
+# from .dense_embedder import BertEmbedder
 
 
 class DenseRetriever(BaseRetriever):
