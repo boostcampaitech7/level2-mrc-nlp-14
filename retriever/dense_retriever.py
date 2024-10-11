@@ -10,12 +10,10 @@ from tqdm.auto import tqdm
 import torch
 from transformers import (
     AutoTokenizer,
-    AdamW,
-    get_linear_schedule_with_warmup,
 )
 
 from base import BaseRetriever
-from .dense_embedder import BertEncoder
+from .dense_embedder import BertEmbedder
 
 
 class DenseRetriever(BaseRetriever):
@@ -57,13 +55,13 @@ class DenseRetriever(BaseRetriever):
 
         if use_siamese:
             # Siamese 방식: 동일한 인코더 사용
-            self.encoder = BertEncoder.from_pretrained(self.model_name)
+            self.encoder = BertEmbedder.from_pretrained(self.model_name)
             self.p_encoder = self.encoder
             self.q_encoder = self.encoder
         else:
             # Asymmetric 방식: 다른 인코더 사용
-            self.p_encoder = BertEncoder.from_pretrained(self.model_name)
-            self.q_encoder = BertEncoder.from_pretrained(self.model_name)
+            self.p_encoder = BertEmbedder.from_pretrained(self.model_name)
+            self.q_encoder = BertEmbedder.from_pretrained(self.model_name)
 
         self.p_encoder.cuda()
         self.q_encoder.cuda()
