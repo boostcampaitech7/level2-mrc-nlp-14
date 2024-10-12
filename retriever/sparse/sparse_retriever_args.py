@@ -9,7 +9,3 @@ class SparseRetrieverArguments:
 
     # 임베딩 종류 설정 (tfidf, count, hash, bm25)
     embedding_type = "bm25"
-
-    #
-    #
-    #

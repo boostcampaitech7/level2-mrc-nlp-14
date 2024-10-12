@@ -53,17 +53,6 @@ def main():
     model_loader = QuestionAnsweringModelLoader(model_args)
     model, tokenizer = model_loader.get_model_tokenizer()
 
-    # True일 경우 : run passage retrieval
-    # 지금 run_sparse_retrieval에
-    # training_args랑 data_args가 들어가서
-    # run_sparse_retrieval 내부의 여러 함수에서 사용되는 중인데
-    # 이걸 전부 retriever_args로 대체하고
-
-    # model_args를 추가적으로 넣어줘서
-    # tokenizer와 model에 대한 정보를 주는 방식이 괜찮아보임
-    # sparse는 tokenizer 통일할 수 있고
-    # dense는 encoder와 모델/토크나이저 같은지 다른지 비교 가능
-    # 같으면 같은대로, 다르면 다른대로 기록해서 실험 결과 정리할 수 있음
     if data_args.eval_retrieval:
         datasets = run_sparse_retrieval(
             datasets,
