@@ -15,8 +15,8 @@ def create_retriever(
     model_args,
     retrieval_type,
     embedding_type,
-    data_path,
-    context_path,
+    data_path: str,
+    context_path: str,
 ) -> BaseRetriever:
     if retrieval_type == "sparse":
         if embedding_type == "bm25":
