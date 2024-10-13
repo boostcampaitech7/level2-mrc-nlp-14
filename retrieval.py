@@ -25,10 +25,6 @@ if __name__ == "__main__":
         type=str,
         help="",
     )
-    parser.add_argument("--data_path", metavar="./data", type=str, help="")
-    parser.add_argument(
-        "--context_path", metavar="wikipedia_documents", type=str, help=""
-    )
     parser.add_argument("--use_faiss", metavar=False, type=bool, help="")
 
     parser.add_argument("--retrieval_type", metavar="sparse", type=str, help="")
