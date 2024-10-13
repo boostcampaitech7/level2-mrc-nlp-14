@@ -12,9 +12,9 @@ from base import BaseRetriever
 
 
 def create_retriever(
-    model_args,
-    retrieval_type,
-    embedding_type,
+    model_args: ModelArguments,
+    retrieval_type: str,
+    embedding_type: str,
     data_path: str,
     context_path: str,
 ) -> BaseRetriever:
