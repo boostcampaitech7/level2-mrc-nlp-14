@@ -16,10 +16,7 @@ from .sparse_retriever_args import SparseRetrieverArguments
 
 
 class BM25Retriever(BaseRetriever):
-    def __init__(
-        self,
-        args: SparseRetrieverArguments,
-    ) -> NoReturn:
+    def __init__(self, args: SparseRetrieverArguments) -> NoReturn:
         """
         Arguments:
             tokenize_fn:
