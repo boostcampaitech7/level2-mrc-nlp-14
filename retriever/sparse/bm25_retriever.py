@@ -11,7 +11,6 @@ from tqdm.auto import tqdm
 from base import BaseRetriever
 from utils import timer
 
-from transformers import AutoTokenizer
 from .sparse_retriever_args import SparseRetrieverArguments
 
 
@@ -37,11 +36,7 @@ class BM25Retriever(BaseRetriever):
         Summary:
             Passage 파일을 불러오고 BM25Vectorizer를 선언하는 기능을 합니다.
         """
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            args.tokenizer_name,
-            use_fast=True,  # rust version tokenizer 사용 여부(좀 더 빠름)
-        )
-        self.tokenize_fn = self.tokenizer.tokenize
+        self.tokenize_fn = args.get_tokenizer().tokenize
 
         self.data_path = args.data_path
         with open(

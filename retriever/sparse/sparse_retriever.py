@@ -8,8 +8,6 @@ import pandas as pd
 from datasets import Dataset
 from tqdm.auto import tqdm
 
-from transformers import AutoTokenizer
-
 from utils import timer
 from base import BaseRetriever
 
@@ -42,11 +40,7 @@ class SparseRetriever(BaseRetriever):
         # BaseRetriever의 생성자를 호출하여 data_path를 초기화
         super().__init__(args.data_path)
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            args.tokenizer_name,
-            use_fast=True,  # rust version tokenizer 사용 여부(좀 더 빠름)
-        )
-        self.tokenize_fn = self.tokenizer.tokenize
+        self.tokenize_fn = args.get_tokenizer().tokenize
 
         with open(
             os.path.join(args.data_path, args.context_path), "r", encoding="utf-8"
