@@ -12,14 +12,13 @@ from base import BaseRetriever
 from utils import timer
 
 from transformers import AutoTokenizer
+from .sparse_retriever_args import SparseRetrieverArguments
 
 
 class BM25Retriever(BaseRetriever):
     def __init__(
         self,
-        model_args,
-        data_path: Optional[str] = "./data/",
-        context_path: Optional[str] = "wikipedia_documents.json",
+        args: SparseRetrieverArguments,
     ) -> NoReturn:
         """
         Arguments:
@@ -42,17 +41,15 @@ class BM25Retriever(BaseRetriever):
             Passage 파일을 불러오고 BM25Vectorizer를 선언하는 기능을 합니다.
         """
         self.tokenizer = AutoTokenizer.from_pretrained(
-            (
-                model_args.tokenizer_name
-                if model_args.tokenizer_name is not None
-                else model_args.model_name_or_path
-            ),
+            args.tokenizer_name,
             use_fast=True,  # rust version tokenizer 사용 여부(좀 더 빠름)
         )
         self.tokenize_fn = self.tokenizer.tokenize
 
-        self.data_path = data_path
-        with open(os.path.join(data_path, context_path), "r", encoding="utf-8") as f:
+        self.data_path = args.data_path
+        with open(
+            os.path.join(args.data_path, args.context_path), "r", encoding="utf-8"
+        ) as f:
             wiki = json.load(f)
 
         self.contexts = list(

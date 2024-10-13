@@ -1,29 +1,19 @@
 import json
 import os
-import pickle
-from typing import List, NoReturn, Optional, Tuple, Union
+from typing import List, NoReturn, Tuple, Union
 
 import pandas as pd
 from datasets import Dataset
-from tqdm.auto import tqdm
 
-from transformers import (
-    AutoTokenizer,
-)
+from transformers import AutoTokenizer
 
 from base import BaseRetriever
-
+from .dense_retriever_args import DenseRetrieverArguments
 from .dense_embedder import BertEmbedder
 
 
 class DenseRetriever(BaseRetriever):
-    def __init__(
-        self,
-        embedding_type: str,
-        data_path: Optional[str] = "./data/",
-        context_path: Optional[str] = "wikipedia_documents.json",
-        use_siamese=False,
-    ) -> NoReturn:
+    def __init__(self, args: DenseRetrieverArguments) -> NoReturn:
         """
         Arguments:
             tokenize_fn:
@@ -45,14 +35,14 @@ class DenseRetriever(BaseRetriever):
             Passage 파일을 불러오고 TfidfVectorizer를 선언하는 기능을 합니다.
         """
         # BaseRetriever의 생성자를 호출하여 data_path를 초기화
-        super().__init__(data_path)
+        super().__init__(args.data_path)
 
-        self.model_name = embedding_type
+        self.model_name = args.embedding_type
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
 
         # 로컬에서 불러오는 부분 추가해야함
 
-        if use_siamese:
+        if args.use_siamese:
             # Siamese 방식: 동일한 인코더 사용
             self.encoder = BertEmbedder.from_pretrained(self.model_name)
             self.p_encoder = self.encoder
@@ -65,7 +55,9 @@ class DenseRetriever(BaseRetriever):
         self.p_encoder.cuda()
         self.q_encoder.cuda()
 
-        with open(os.path.join(data_path, context_path), "r", encoding="utf-8") as f:
+        with open(
+            os.path.join(args.data_path, args.context_path), "r", encoding="utf-8"
+        ) as f:
             wiki = json.load(f)
 
     def get_dense_embedding(self) -> NoReturn:

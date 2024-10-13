@@ -7,6 +7,8 @@ from retriever import create_retriever
 from utils import timer
 import argparse
 from transformers import AutoTokenizer
+from retriever.sparse import SparseRetrieverArguments
+from retriever.dense import DenseRetrieverArguments
 
 seed = 2024
 random.seed(seed)  # python random seed 고정
@@ -51,12 +53,14 @@ if __name__ == "__main__":
         use_fast=False,
     )
 
+    if args.retrieval_type == "sparse":
+        retriever_args = SparseRetrieverArguments
+    elif args.retrieval_type == "dense":
+        retriever_args = DenseRetrieverArguments
+
     retriever = create_retriever(
-        tokenize_fn=tokenizer.tokenize,
-        data_path=args.data_path,
-        context_path=args.context_path,
         retrieval_type=args.retrieval_type,
-        embedding_type=args.embedding_type,
+        retriever_args=retriever_args,
     )
 
     query = "대통령을 포함한 미국의 행정부 견제권을 갖는 국가 기관은?"

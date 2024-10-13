@@ -1,5 +1,5 @@
-from .sparse import BM25Retriever, SparseRetriever, SparseRetrieverArguments
-from .dense import DenseRetriever, DenseRetrieverArguments
+from retriever.sparse import BM25Retriever, SparseRetriever, SparseRetrieverArguments
+from retriever.dense import DenseRetriever, DenseRetrieverArguments
 from datasets import (
     Dataset,
     DatasetDict,
@@ -7,54 +7,40 @@ from datasets import (
     Sequence,
     Value,
 )
-from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
+from args import DataTrainingArguments, CustomTrainingArguments
 from base import BaseRetriever
 
 
 def create_retriever(
-    model_args: ModelArguments,
     retrieval_type: str,
-    embedding_type: str,
-    data_path: str,
-    context_path: str,
+    retriever_args: SparseRetrieverArguments | DenseRetrieverArguments,
 ) -> BaseRetriever:
     if retrieval_type == "sparse":
-        if embedding_type == "bm25":
-            return BM25Retriever(model_args, data_path, context_path)
+        if retriever_args.embedding_type == "bm25":
+            return BM25Retriever(retriever_args)
         else:
-            return SparseRetriever(embedding_type, model_args, data_path, context_path)
+            return SparseRetriever(retriever_args)
     elif retrieval_type == "dense":
-        return DenseRetriever(
-            embedding_type, data_path, context_path, use_siamese=False
-        )
+        return DenseRetriever(retriever_args)
     else:
         raise ValueError(f"Invalid retriever type: {type}")
 
 
 def run_sparse_retrieval(
     datasets: DatasetDict,
-    model_args: ModelArguments,
     training_args: CustomTrainingArguments,
     data_args: DataTrainingArguments,
 ) -> DatasetDict:
 
-    retrieval_type = data_args.retrieval_type
-    if retrieval_type == "sparse":
+    if data_args.retrieval_type == "sparse":
         retriever_args = SparseRetrieverArguments
-    elif retrieval_type == "dense":
+    elif data_args.retrieval_type == "dense":
         retriever_args = DenseRetrieverArguments
-
-    embedding_type = retriever_args.embedding_type
-    data_path = retriever_args.data_path
-    context_path = retriever_args.context_path
 
     # Query에 맞는 Passage들을 Retrieval 합니다.
     retriever = create_retriever(
-        model_args=model_args,
         retrieval_type=data_args.retrieval_type,
-        embedding_type=embedding_type,
-        data_path=data_path,
-        context_path=context_path,
+        retriever_args=retriever_args,
     )
 
     if data_args.use_faiss:

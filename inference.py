@@ -56,7 +56,6 @@ def main():
     if data_args.eval_retrieval:
         datasets = run_sparse_retrieval(
             datasets,
-            model_args,
             training_args,
             data_args,
         )
