@@ -1,7 +1,5 @@
-from .sparse_retriever import SparseRetriever
-from .bm25_retriever import BM25Retriever
-from .dense_retriever import DenseRetriever
-from typing import Optional, Callable, List
+from .sparse import BM25Retriever, SparseRetriever, SparseRetrieverArguments
+from .dense import DenseRetriever, DenseRetrieverArguments
 from datasets import (
     Dataset,
     DatasetDict,
@@ -9,46 +7,54 @@ from datasets import (
     Sequence,
     Value,
 )
-from args import DataTrainingArguments, CustomTrainingArguments
+from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
 from base import BaseRetriever
 
 
 def create_retriever(
-    tokenize_fn,
-    data_path: Optional[str] = "./data/",
-    context_path: Optional[str] = "wikipedia_documents.json",
-    retrieval_type="sparse",
-    embedding_type="tfidf",
+    model_args: ModelArguments,
+    retrieval_type: str,
+    embedding_type: str,
+    data_path: str,
+    context_path: str,
 ) -> BaseRetriever:
     if retrieval_type == "sparse":
         if embedding_type == "bm25":
-            return BM25Retriever(tokenize_fn, data_path, context_path)
+            return BM25Retriever(model_args, data_path, context_path)
         else:
-            return SparseRetriever(embedding_type, tokenize_fn, data_path, context_path)
+            return SparseRetriever(embedding_type, model_args, data_path, context_path)
     elif retrieval_type == "dense":
         return DenseRetriever(
-            embedding_type, tokenize_fn, data_path, context_path, use_siamese=False
+            embedding_type, data_path, context_path, use_siamese=False
         )
     else:
         raise ValueError(f"Invalid retriever type: {type}")
 
 
 def run_sparse_retrieval(
-    tokenize_fn: Callable[[str], List[str]],
     datasets: DatasetDict,
+    model_args: ModelArguments,
     training_args: CustomTrainingArguments,
     data_args: DataTrainingArguments,
-    data_path: str = "./data",
-    context_path: str = "wikipedia_documents.json",
 ) -> DatasetDict:
+
+    retrieval_type = data_args.retrieval_type
+    if retrieval_type == "sparse":
+        retriever_args = SparseRetrieverArguments
+    elif retrieval_type == "dense":
+        retriever_args = DenseRetrieverArguments
+
+    embedding_type = retriever_args.embedding_type
+    data_path = retriever_args.data_path
+    context_path = retriever_args.context_path
 
     # Query에 맞는 Passage들을 Retrieval 합니다.
     retriever = create_retriever(
-        tokenize_fn=tokenize_fn,
+        model_args=model_args,
+        retrieval_type=data_args.retrieval_type,
+        embedding_type=embedding_type,
         data_path=data_path,
         context_path=context_path,
-        retrieval_type=data_args.retrieval_type,
-        embedding_type=data_args.embedding_type,
     )
 
     if data_args.use_faiss:

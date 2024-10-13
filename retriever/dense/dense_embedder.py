@@ -4,7 +4,7 @@ from transformers import (
 )
 
 
-# BertEncoder를 직접 수정하지 말고, 상속 받아서 쓰세요
+# BertEmbedder를 직접 수정하지 말고, 상속 받아서 쓰세요
 class BertEmbedder(BertPreTrainedModel):
     def __init__(self, config):
         super(BertEmbedder, self).__init__(config)

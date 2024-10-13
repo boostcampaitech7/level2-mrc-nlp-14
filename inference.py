@@ -53,11 +53,10 @@ def main():
     model_loader = QuestionAnsweringModelLoader(model_args)
     model, tokenizer = model_loader.get_model_tokenizer()
 
-    # True일 경우 : run passage retrieval
     if data_args.eval_retrieval:
         datasets = run_sparse_retrieval(
-            tokenizer.tokenize,
             datasets,
+            model_args,
             training_args,
             data_args,
         )
