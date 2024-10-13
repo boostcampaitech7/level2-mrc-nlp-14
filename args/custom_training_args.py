@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 from transformers import TrainingArguments
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Optional
 
 
 # batch size와 epoch 및 다른 hyper parameter를 조정할 수 있습니다

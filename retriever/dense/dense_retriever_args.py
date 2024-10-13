@@ -1,3 +1,8 @@
+from dataclasses import dataclass
+from args import RetrieverArguments
+
+
+@dataclass
 class DenseRetrieverArguments:
     """
     DenseRetriever 클래스를 생성할 때 전달할 인자값들
@@ -11,6 +16,6 @@ class DenseRetrieverArguments:
 
     use_siamese = True
 
-    # p_model_path =
-    # q_model_path =
-    # embedding_type =
+    def __init__(self, retriever_args: RetrieverArguments):
+        self.embedding_type = retriever_args.dense_embedding_type
+        self.use_siamese = retriever_args.dense_use_siamese

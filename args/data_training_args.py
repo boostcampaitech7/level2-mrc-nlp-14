@@ -64,7 +64,3 @@ class DataTrainingArguments:
     use_faiss: bool = field(
         default=False, metadata={"help": "Whether to build with faiss"}
     )
-    retrieval_type: str = field(
-        default="sparse",
-        metadata={"help": "Define which retrieval method to use. (sparse, dense)"},
-    )

@@ -8,7 +8,12 @@ import logging
 import sys
 from typing import NoReturn
 
-from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
+from args import (
+    DataTrainingArguments,
+    ModelArguments,
+    CustomTrainingArguments,
+    RetrieverArguments,
+)
 from model import QuestionAnsweringModelLoader
 from data_loader import TextDataLoader
 from datasets import (
@@ -31,9 +36,16 @@ def main():
     # 또는 --help flag 를 실행시켜서 확인할 수 도 있습니다.
 
     parser = HfArgumentParser(
-        (ModelArguments, DataTrainingArguments, CustomTrainingArguments)
+        (
+            ModelArguments,
+            DataTrainingArguments,
+            CustomTrainingArguments,
+            RetrieverArguments,
+        )
     )
-    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    model_args, data_args, training_args, retriever_args = (
+        parser.parse_args_into_dataclasses()
+    )
 
     # logging 설정
     logging.basicConfig(
@@ -56,9 +68,9 @@ def main():
     if data_args.eval_retrieval:
         datasets = run_sparse_retrieval(
             datasets,
-            model_args,
             training_args,
             data_args,
+            retriever_args,
         )
 
     # eval or predict mrc model

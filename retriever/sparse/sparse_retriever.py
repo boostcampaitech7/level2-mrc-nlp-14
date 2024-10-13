@@ -8,22 +8,15 @@ import pandas as pd
 from datasets import Dataset
 from tqdm.auto import tqdm
 
-from transformers import AutoTokenizer
-
 from utils import timer
 from base import BaseRetriever
 
 from .sparse_embedder import TfidfEmbedder, CountEmbedder, HashEmbedder
+from .sparse_retriever_args import SparseRetrieverArguments
 
 
 class SparseRetriever(BaseRetriever):
-    def __init__(
-        self,
-        embedding_type: str,
-        model_args,
-        data_path: Optional[str] = "./data/",
-        context_path: Optional[str] = "wikipedia_documents.json",
-    ) -> NoReturn:
+    def __init__(self, args: SparseRetrieverArguments) -> NoReturn:
         """
         Arguments:
             tokenize_fn:
@@ -45,19 +38,13 @@ class SparseRetriever(BaseRetriever):
             Passage 파일을 불러오고 TfidfVectorizer를 선언하는 기능을 합니다.
         """
         # BaseRetriever의 생성자를 호출하여 data_path를 초기화
-        super().__init__(data_path)
+        super().__init__(args.data_path)
 
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            (
-                model_args.tokenizer_name
-                if model_args.tokenizer_name is not None
-                else model_args.model_name_or_path
-            ),
-            use_fast=True,  # rust version tokenizer 사용 여부(좀 더 빠름)
-        )
-        self.tokenize_fn = self.tokenizer.tokenize
+        self.tokenize_fn = args.get_tokenizer().tokenize
 
-        with open(os.path.join(data_path, context_path), "r", encoding="utf-8") as f:
+        with open(
+            os.path.join(args.data_path, args.context_path), "r", encoding="utf-8"
+        ) as f:
             wiki = json.load(f)
 
         self.contexts = list(
@@ -67,7 +54,7 @@ class SparseRetriever(BaseRetriever):
         self.ids = list(range(len(self.contexts)))
 
         # str으로 들어온 embedding type (ex: "tfidf")
-        self.embedding_type = embedding_type
+        self.embedding_type = args.embedding_type
 
         if self.embedding_type == "tfidf":
             # embedder.vectorizer()로 vectorizer에 접근 가능
