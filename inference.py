@@ -75,13 +75,12 @@ def main():
 
     # eval or predict mrc model
     if training_args.do_eval or training_args.do_predict:
-        run_mrc(data_args, training_args, model_args, datasets, tokenizer, model)
+        run_mrc(data_args, training_args, datasets, tokenizer, model)
 
 
 def run_mrc(
     data_args: DataTrainingArguments,
     training_args: CustomTrainingArguments,
-    model_args: ModelArguments,
     datasets: DatasetDict,
     tokenizer,
     model,
