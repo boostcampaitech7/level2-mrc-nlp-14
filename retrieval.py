@@ -5,9 +5,9 @@ from datasets import concatenate_datasets, load_from_disk
 
 from retriever import create_retriever
 from utils import timer
-import argparse
-from transformers import AutoTokenizer
-from args import RetrieverArguments
+from transformers import HfArgumentParser
+from args import ModelArguments, DataTrainingArguments, RetrieverArguments
+
 
 seed = 2024
 random.seed(seed)  # python random seed 고정
@@ -15,29 +15,18 @@ np.random.seed(seed)  # numpy random seed 고정
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="")
-    parser.add_argument(
-        "--dataset_name", metavar="./data/train_dataset", type=str, help=""
-    )
-    parser.add_argument(
-        "--model_name_or_path",
-        metavar="bert-base-multilingual-cased",
-        type=str,
-        help="",
-    )
-    parser.add_argument("--data_path", metavar="./data", type=str, help="")
-    parser.add_argument(
-        "--context_path", metavar="wikipedia_documents", type=str, help=""
-    )
-    parser.add_argument("--use_faiss", metavar=False, type=bool, help="")
 
-    parser.add_argument("--retrieval_type", metavar="sparse", type=str, help="")
-    parser.add_argument("--embedding_type", metavar="tfidf", type=str, help="")
-
-    args = parser.parse_args()
+    parser = HfArgumentParser(
+        (
+            ModelArguments,
+            DataTrainingArguments,
+            RetrieverArguments,
+        )
+    )
+    model_args, training_args, retriever_args = parser.parse_args_into_dataclasses()
 
     # Test sparse
-    org_dataset = load_from_disk(args.dataset_name)
+    org_dataset = load_from_disk(training_args.dataset_name)
     full_ds = concatenate_datasets(
         [
             org_dataset["train"].flatten_indices(),
@@ -47,22 +36,11 @@ if __name__ == "__main__":
     print("*" * 40, "query dataset", "*" * 40)
     print(full_ds)
 
-    tokenizer = AutoTokenizer.from_pretrained(
-        args.model_name_or_path,
-        use_fast=False,
-    )
-    retriever_args = RetrieverArguments(
-        retrieval_type=args.retrieval_type,
-        sparse_embedding_type=args.embedding_type,
-        sparse_tokenizer_name=args.model_name_or_path,
-        dense_embedding_type=args.model_name_or_path,
-    )
-
     retriever = create_retriever(retriever_args)
 
     query = "대통령을 포함한 미국의 행정부 견제권을 갖는 국가 기관은?"
 
-    if args.use_faiss:
+    if training_args.use_faiss:
 
         # test single query
         with timer("single query by faiss"):
