@@ -90,6 +90,7 @@ def run_mrc(
         max_answer_length=data_args.max_answer_length,
         answer_column_name=data_loader.answer_column_name,
         tokenizer=tokenizer,
+        use_no_answer=data_args.use_no_answer,
     )
 
     # Training

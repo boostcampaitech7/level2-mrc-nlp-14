@@ -64,3 +64,6 @@ class DataTrainingArguments:
     use_faiss: bool = field(
         default=False, metadata={"help": "Whether to build with faiss"}
     )
+    use_no_answer: bool = field(
+        default=False, metadata={"help": "Whether to use no answer option or not."}
+    )
