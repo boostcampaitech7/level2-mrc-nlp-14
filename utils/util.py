@@ -46,7 +46,7 @@ def postprocess_qa_predictions(
     examples,
     features,
     predictions: Tuple[np.ndarray, np.ndarray],
-    version_2_with_negative: bool = False,
+    version_2_with_negative: bool = True,
     n_best_size: int = 20,
     max_answer_length: int = 30,
     null_score_diff_threshold: float = 0.0,
@@ -117,7 +117,7 @@ def postprocess_qa_predictions(
         # 해당하는 현재 example index
         feature_indices = features_per_example[example_index]
 
-        min_null_prediction = None
+        null_predictions = []
         prelim_predictions = []
 
         # 현재 example에 대한 모든 feature 생성합니다.
@@ -132,25 +132,21 @@ def postprocess_qa_predictions(
                 "token_is_max_context", None
             )
 
-            # minimum null prediction을 업데이트 합니다.
-            feature_null_score = start_logits[0] + end_logits[0]
-            if (
-                min_null_prediction is None
-                or min_null_prediction["score"] > feature_null_score
-            ):
-                min_null_prediction = {
-                    "offsets": (0, 0),
-                    "score": feature_null_score,
-                    "start_logit": start_logits[0],
-                    "end_logit": end_logits[0],
-                }
+            if version_2_with_negative:
+                null_predictions.append(
+                    {
+                        "offsets": (0, 0),
+                        "score": start_logits[0] + end_logits[0],
+                        "start_logit": start_logits[0],
+                        "end_logit": end_logits[0],
+                    }
+                )
+
+            feature_predictions = []
 
             # `n_best_size`보다 큰 start and end logits을 살펴봅니다.
-            start_indexes = np.argsort(start_logits)[
-                -1 : -n_best_size - 1 : -1
-            ].tolist()
-
-            end_indexes = np.argsort(end_logits)[-1 : -n_best_size - 1 : -1].tolist()
+            start_indexes = np.argsort(start_logits)[::-1][:n_best_size].tolist()
+            end_indexes = np.argsort(end_logits)[::-1][:n_best_size].tolist()
 
             for start_index in start_indexes:
                 for end_index in end_indexes:
@@ -174,7 +170,7 @@ def postprocess_qa_predictions(
                         and not token_is_max_context.get(str(start_index), False)
                     ):
                         continue
-                    prelim_predictions.append(
+                    feature_predictions.append(
                         {
                             "offsets": (
                                 offset_mapping[start_index][0],
@@ -185,22 +181,18 @@ def postprocess_qa_predictions(
                             "end_logit": end_logits[end_index],
                         }
                     )
-
-        if version_2_with_negative:
-            # minimum null prediction을 추가합니다.
-            prelim_predictions.append(min_null_prediction)
-            null_score = min_null_prediction["score"]
+            prelim_predictions.append(feature_predictions)
 
         # 가장 좋은 `n_best_size` predictions만 유지합니다.
         predictions = sorted(
-            prelim_predictions, key=lambda x: x["score"], reverse=True
+            [
+                prediction
+                for feature_predictions in prelim_predictions
+                for prediction in feature_predictions
+            ],
+            key=lambda x: x["score"],
+            reverse=True,
         )[:n_best_size]
-
-        # 낮은 점수로 인해 제거된 경우 minimum null prediction을 다시 추가합니다.
-        if version_2_with_negative and not any(
-            p["offsets"] == (0, 0) for p in predictions
-        ):
-            predictions.append(min_null_prediction)
 
         # offset을 사용하여 original context에서 answer text를 수집합니다.
         context = example["context"]
@@ -209,16 +201,18 @@ def postprocess_qa_predictions(
             pred["text"] = context[offsets[0] : offsets[1]]
 
         # rare edge case에는 null이 아닌 예측이 하나도 없으며 failure를 피하기 위해 fake prediction을 만듭니다.
-        if len(predictions) == 0 or (
-            len(predictions) == 1 and predictions[0]["text"] == ""
-        ):
-
-            predictions.insert(
-                0, {"text": "empty", "start_logit": 0.0, "end_logit": 0.0, "score": 0.0}
+        if len(predictions) == 0:
+            predictions.append(
+                {
+                    "text": "<no_answer>",
+                    "start_logit": 0.0,
+                    "end_logit": 0.0,
+                    "score": 0.0,
+                }
             )
 
         # 모든 점수의 소프트맥스를 계산합니다(we do it with numpy to stay independent from torch/tf in this file, using the LogSumExp trick).
-        scores = np.array([pred.pop("score") for pred in predictions])
+        scores = np.array([pred.get("score") for pred in predictions])
         exp_scores = np.exp(scores - np.max(scores))
         probs = exp_scores / exp_scores.sum()
 
@@ -226,29 +220,32 @@ def postprocess_qa_predictions(
         for prob, pred in zip(probs, predictions):
             pred["probability"] = prob
 
-        # best prediction을 선택합니다.
-        if not version_2_with_negative:
-            all_predictions[example["id"]] = predictions[0]["text"]
-        else:
-            # else case : 먼저 비어 있지 않은 최상의 예측을 찾아야 합니다
-            i = 0
-            while predictions[i]["text"] == "":
-                i += 1
-            best_non_null_pred = predictions[i]
+        best_non_null_pred = predictions[0]
+        all_predictions[example["id"]] = best_non_null_pred["text"]
 
-            # threshold를 사용해서 null prediction을 비교합니다.
-            score_diff = (
-                null_score
-                - best_non_null_pred["start_logit"]
-                - best_non_null_pred["end_logit"]
-            )
-            scores_diff_json[example["id"]] = float(
-                score_diff
-            )  # JSON-serializable 가능
-            if score_diff > null_score_diff_threshold:
-                all_predictions[example["id"]] = ""
-            else:
-                all_predictions[example["id"]] = best_non_null_pred["text"]
+        if version_2_with_negative:
+            selected_null_predictions = [
+                null_prediction
+                for idx, null_prediction in enumerate(null_predictions)
+                if null_prediction["score"]
+                > (
+                    max(predictions["score"] for predictions in prelim_predictions[idx])
+                    if prelim_predictions[idx]
+                    else 0
+                )
+            ]
+            if len(feature_indices) == len(selected_null_predictions):
+                null_score = (
+                    min(pred["score"] for pred in selected_null_predictions)
+                    if selected_null_predictions
+                    else -100.0
+                )
+                score_diff = null_score - best_non_null_pred["score"]
+                # JSON-serializable 가능
+                scores_diff_json[example["id"]] = float(score_diff)
+                # threshold를 사용해서 null prediction을 비교합니다.
+                if score_diff > null_score_diff_threshold:
+                    all_predictions[example["id"]] = "<no_answer>"
 
         # np.float를 다시 float로 casting -> `predictions`은 JSON-serializable 가능
         all_nbest_json[example["id"]] = [
