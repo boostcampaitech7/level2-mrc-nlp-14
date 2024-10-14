@@ -4,11 +4,9 @@ from args import RetrieverArguments
 
 class SparseRetrieverArguments:
     def __init__(self, retriever_args: RetrieverArguments):
-        # Retrieve할 데이터 경로
-        self.data_path = "./data/"
-        self.context_path = "wikipedia_documents.json"
+        self.data_path = retriever_args.data_path
+        self.context_path = retriever_args.context_path
 
-        # 임베딩 종류 설정 (tfidf, count, hash, bm25)
         self.embedding_type = retriever_args.sparse_embedding_type
         self.tokenizer_name = retriever_args.sparse_tokenizer_name
 

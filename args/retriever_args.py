@@ -3,6 +3,16 @@ from dataclasses import dataclass, field
 
 @dataclass
 class RetrieverArguments:
+    data_path: str = field(
+        default="./data/",
+        metadata={"help": "Define the path to the data."},
+    )
+
+    context_path: str = field(
+        default="wikipedia_documents.json",
+        metadata={"help": "Define the path to the context."},
+    )
+
     retrieval_type: str = field(
         default="sparse",
         metadata={"help": "Define which retrieval method to use. (sparse, dense)"},
