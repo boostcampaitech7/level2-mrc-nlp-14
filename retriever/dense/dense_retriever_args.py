@@ -8,3 +8,4 @@ class DenseRetrieverArguments:
 
         self.embedding_type = retriever_args.dense_embedding_type
         self.use_siamese = retriever_args.dense_use_siamese
+        self.local_model_path = "./retriever/embedding"

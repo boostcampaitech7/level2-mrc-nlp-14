@@ -96,7 +96,7 @@ class DenseRetriever(BaseRetriever):
         self.p_encoder.cuda()
         self.q_encoder.cuda()
 
-    def get_dense_embedding(self) -> NoReturn:
+    def get_dense_embedding(self, args: DenseRetrieverArguments) -> NoReturn:
         """
         Summary:
             Passage Embedding을 만들고
@@ -106,7 +106,7 @@ class DenseRetriever(BaseRetriever):
 
         # Pickle 파일 이름 설정
         pickle_name = f"{self.model_name}_dense_embedding_{self.encoder_type}.bin"
-        embedding_path = os.path.join(self.local_model_path, pickle_name)
+        embedding_path = os.path.join(args.local_model_path, pickle_name)
 
         # 기존 임베딩이 있으면 불러오기
         if os.path.isfile(embedding_path):
