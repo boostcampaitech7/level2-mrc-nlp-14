@@ -14,7 +14,7 @@ class RetrieverArguments:
     )
 
     retrieval_type: str = field(
-        default="sparse",
+        default="dense",
         metadata={"help": "Define which retrieval method to use. (sparse, dense)"},
     )
 
