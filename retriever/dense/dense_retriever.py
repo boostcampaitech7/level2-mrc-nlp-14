@@ -79,7 +79,7 @@ class DenseRetriever(BaseRetriever):
         # Pickle 파일 이름 설정
         safe_embedder_name = self.args.p_embedder_name.replace("/", "_")
         pickle_name = f"dense_embedding_{safe_embedder_name}.bin"
-        embedding_path = os.path.join(self.args.local_model_path, pickle_name)
+        embedding_path = os.path.join(self.args.embedding_path, pickle_name)
 
         # 기존 임베딩이 있으면 불러오기
         if os.path.isfile(embedding_path):
