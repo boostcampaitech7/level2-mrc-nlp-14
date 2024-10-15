@@ -75,13 +75,12 @@ def main():
 
     # eval or predict mrc model
     if training_args.do_eval or training_args.do_predict:
-        run_mrc(data_args, training_args, model_args, datasets, tokenizer, model)
+        run_mrc(data_args, training_args, datasets, tokenizer, model)
 
 
 def run_mrc(
     data_args: DataTrainingArguments,
     training_args: CustomTrainingArguments,
-    model_args: ModelArguments,
     datasets: DatasetDict,
     tokenizer,
     model,
@@ -106,6 +105,7 @@ def run_mrc(
         max_answer_length=data_args.max_answer_length,
         answer_column_name=data_loader.answer_column_name,
         tokenizer=tokenizer,
+        use_no_answer=data_args.use_no_answer,
     )
 
     logger.info("*** Evaluate ***")

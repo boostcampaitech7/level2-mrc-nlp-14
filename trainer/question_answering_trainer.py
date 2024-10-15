@@ -45,12 +45,14 @@ class QuestionAnsweringTrainer(Trainer):
         eval_examples=None,
         max_answer_length=512,
         answer_column_name=None,
+        use_no_answer: bool = False,
         **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.eval_examples = eval_examples
         self.max_answer_length = max_answer_length
         self.answer_column_name = answer_column_name
+        self.use_no_answer = use_no_answer
         self.metric = load_metric("squad")
         self.setup()
 
@@ -81,6 +83,7 @@ class QuestionAnsweringTrainer(Trainer):
             predictions=predictions,
             max_answer_length=self.max_answer_length,
             output_dir=self.args.output_dir,
+            version_2_with_negative=self.use_no_answer,
         )
         # Metric을 구할 수 있도록 Format을 맞춰줍니다.
         formatted_predictions = [
