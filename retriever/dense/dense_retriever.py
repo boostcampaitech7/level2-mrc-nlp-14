@@ -24,8 +24,8 @@ class DenseRetriever(BaseRetriever):
         # BaseRetriever의 생성자를 호출하여 data_path를 초기화
         super().__init__(args.data_path)
 
-        self.model_name = args.embedding_type
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.args = args
+        self.tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
 
         # Siamese (SDE) 또는 Asymmetric (ADE) 구분
         self.encoder_type = "SDE" if args.use_siamese else "ADE"
@@ -42,19 +42,19 @@ class DenseRetriever(BaseRetriever):
         self.ids = list(range(len(self.contexts)))
 
         # p_encoder, q_encoder 로드 또는 초기화
-        self.load_or_initialize_encoders(args)
+        self.load_or_initialize_encoders()
 
         # 임베딩 생성 함수 호출
-        self.get_dense_embedding(args)
+        self.get_dense_embedding()
 
-    def load_or_initialize_encoders(self, args: DenseRetrieverArguments) -> NoReturn:
+    def load_or_initialize_encoders(self) -> NoReturn:
         """
         Summary:
             p_encoder와 q_encoder를 로드하거나 새로 초기화하는 함수
         """
 
         encoder_pickle_path = os.path.join(
-            args.local_model_path, f"encoder_{self.encoder_type}.bin"
+            self.args.local_model_path, f"encoder_{self.encoder_type}.bin"
         )
 
         if os.path.isfile(encoder_pickle_path):
@@ -64,13 +64,13 @@ class DenseRetriever(BaseRetriever):
             print("Loaded existing encoder from local storage.")
         else:
             # 로컬에 없으면 새로 로드하고 저장
-            if args.use_siamese:
-                self.encoder = BertEmbedder.from_pretrained(self.model_name)
+            if self.args.use_siamese:
+                self.encoder = BertEmbedder.from_pretrained(self.args.model_name)
                 self.p_encoder = self.encoder
                 self.q_encoder = self.encoder
             else:
-                self.p_encoder = BertEmbedder.from_pretrained(self.model_name)
-                self.q_encoder = BertEmbedder.from_pretrained(self.model_name)
+                self.p_encoder = BertEmbedder.from_pretrained(self.args.model_name)
+                self.q_encoder = BertEmbedder.from_pretrained(self.args.model_name)
 
             # 모델을 pickle로 저장
             with open(encoder_pickle_path, "wb") as f:
@@ -80,7 +80,7 @@ class DenseRetriever(BaseRetriever):
         self.p_encoder.cuda()
         self.q_encoder.cuda()
 
-    def get_dense_embedding(self, args: DenseRetrieverArguments) -> NoReturn:
+    def get_dense_embedding(self) -> NoReturn:
         """
         Summary:
             Passage Embedding을 만들고
@@ -90,7 +90,7 @@ class DenseRetriever(BaseRetriever):
 
         # Pickle 파일 이름 설정
         pickle_name = f"dense_embedding_{self.encoder_type}.bin"
-        embedding_path = os.path.join(args.local_model_path, pickle_name)
+        embedding_path = os.path.join(self.args.local_model_path, pickle_name)
 
         # 기존 임베딩이 있으면 불러오기
         if os.path.isfile(embedding_path):
@@ -99,7 +99,7 @@ class DenseRetriever(BaseRetriever):
             print("Passage embedding loaded from pickle.")
         else:
             # 임베딩이 없으면 새로 생성
-            print(f"Building passage embedding with {self.model_name} encoder...")
+            print(f"Building passage embedding with {self.args.model_name} encoder...")
 
             # Passage를 batch로 나눠서 인코딩 (메모리 효율을 위해)
             batch_size = 32  # 배치 크기는 상황에 맞게 조절 가능
