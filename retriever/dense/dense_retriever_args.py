@@ -6,6 +6,7 @@ class DenseRetrieverArguments:
         self.data_path = retriever_args.data_path
         self.context_path = retriever_args.context_path
 
-        self.model_name = retriever_args.dense_embedding_type
+        self.p_embedder_name = retriever_args.dense_p_embedder
+        self.q_embedder_name = retriever_args.dense_q_embedder
         self.use_siamese = retriever_args.dense_use_siamese
         self.local_model_path = "./retriever/embedding"

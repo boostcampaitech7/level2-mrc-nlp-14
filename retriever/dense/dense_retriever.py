@@ -25,7 +25,6 @@ class DenseRetriever(BaseRetriever):
         super().__init__(args.data_path)
 
         self.args = args
-        self.tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
 
         # Siamese (SDE) 또는 Asymmetric (ADE) 구분
         self.encoder_type = "SDE" if args.use_siamese else "ADE"
@@ -42,40 +41,29 @@ class DenseRetriever(BaseRetriever):
         self.ids = list(range(len(self.contexts)))
 
         # p_encoder, q_encoder 로드 또는 초기화
-        self.load_or_initialize_encoders()
+        self.load_encoders()
 
         # 임베딩 생성 함수 호출
         self.get_dense_embedding()
 
-    def load_or_initialize_encoders(self) -> NoReturn:
+    def load_encoders(self) -> NoReturn:
         """
         Summary:
             p_encoder와 q_encoder를 로드하거나 새로 초기화하는 함수
         """
-
-        encoder_pickle_path = os.path.join(
-            self.args.local_model_path, f"encoder_{self.encoder_type}.bin"
-        )
-
-        if os.path.isfile(encoder_pickle_path):
-            # 기존 저장된 q_encoder와 p_encoder 불러오기
-            with open(encoder_pickle_path, "rb") as f:
-                self.p_encoder, self.q_encoder = pickle.load(f)
-            print("Loaded existing encoder from local storage.")
+        if self.args.use_siamese:
+            encoder = BertEmbedder.from_pretrained(self.args.p_embedder_name)
+            self.p_encoder = encoder
+            self.q_encoder = encoder
+            tokenizer = AutoTokenizer.from_pretrained(self.args.p_embedder_name)
+            self.p_tokenizer = tokenizer
+            self.q_tokenizer = tokenizer
         else:
-            # 로컬에 없으면 새로 로드하고 저장
-            if self.args.use_siamese:
-                self.encoder = BertEmbedder.from_pretrained(self.args.model_name)
-                self.p_encoder = self.encoder
-                self.q_encoder = self.encoder
-            else:
-                self.p_encoder = BertEmbedder.from_pretrained(self.args.model_name)
-                self.q_encoder = BertEmbedder.from_pretrained(self.args.model_name)
+            self.p_encoder = BertEmbedder.from_pretrained(self.args.p_embedder_name)
+            self.p_tokenizer = AutoTokenizer.from_pretrained(self.args.p_embedder_name)
 
-            # 모델을 pickle로 저장
-            with open(encoder_pickle_path, "wb") as f:
-                pickle.dump((self.p_encoder, self.q_encoder), f)
-            print("Saved new encoder to local storage.")
+            self.q_encoder = BertEmbedder.from_pretrained(self.args.q_embedder_name)
+            self.q_tokenizer = AutoTokenizer.from_pretrained(self.args.q_embedder_name)
 
         self.p_encoder.cuda()
         self.q_encoder.cuda()
@@ -99,7 +87,9 @@ class DenseRetriever(BaseRetriever):
             print("Passage embedding loaded from pickle.")
         else:
             # 임베딩이 없으면 새로 생성
-            print(f"Building passage embedding with {self.args.model_name} encoder...")
+            print(
+                f"Building passage embedding with {self.args.p_embedder_name} encoder..."
+            )
 
             # Passage를 batch로 나눠서 인코딩 (메모리 효율을 위해)
             batch_size = 32  # 배치 크기는 상황에 맞게 조절 가능
@@ -111,7 +101,7 @@ class DenseRetriever(BaseRetriever):
                     range(0, len(self.contexts), batch_size), desc="Encoding passages"
                 ):
                     batch_texts = self.contexts[i : i + batch_size]
-                    inputs = self.tokenizer(
+                    inputs = self.p_tokenizer(
                         batch_texts,
                         padding=True,
                         truncation=True,
@@ -207,7 +197,7 @@ class DenseRetriever(BaseRetriever):
         # Query를 q_encoder로 임베딩
         self.q_encoder.eval()
         with torch.no_grad():
-            inputs = self.tokenizer(
+            inputs = self.q_tokenizer(
                 query,
                 return_tensors="pt",
                 padding=True,
@@ -246,7 +236,7 @@ class DenseRetriever(BaseRetriever):
         # Query를 q_encoder로 임베딩
         with torch.no_grad():
             for query in tqdm(queries, desc="Encoding queries"):
-                inputs = self.tokenizer(
+                inputs = self.q_tokenizer(
                     query,
                     return_tensors="pt",
                     padding=True,
