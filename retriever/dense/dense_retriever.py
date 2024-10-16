@@ -45,7 +45,7 @@ class DenseRetriever(BaseRetriever):
         # p_encoder, q_encoder 로드 또는 초기화
         self.load_encoders()
 
-        self.train_embedder()
+        # self.train_embedder()
 
         # 임베딩 생성 함수 호출
         self.get_dense_embedding()
@@ -71,137 +71,6 @@ class DenseRetriever(BaseRetriever):
 
         self.p_encoder.cuda()
         self.q_encoder.cuda()
-
-    def train_embedder(self) -> NoReturn:
-        """
-        Train the embedder (p_encoder, q_encoder) using the MRC dataset.
-        """
-
-        # MRC 데이터셋을 불러오기 (데이터 로드 부분)
-        train_data = Dataset.from_file(
-            "/data/ephemeral/mrc/data/train_dataset/train/dataset.arrow"
-        )
-
-        # 데이터 전처리 - 질문과 문서를 준비
-        questions = [item["question"] for item in train_data]
-        contexts = [item["context"] for item in train_data]
-
-        # Learning rate 및 epochs 직접 설정
-        learning_rate = 3e-5
-        epochs = 3  # 에포크 수를 3으로 설정
-        batch_size = 16
-
-        # Optimizer 및 Loss 설정 (옵티마이저는 AdamW, loss는 Contrastive Loss로 변경)
-        optimizer = torch.optim.AdamW(
-            list(self.p_encoder.parameters()) + list(self.q_encoder.parameters()),
-            lr=learning_rate,  # 직접 설정한 learning rate 사용
-        )
-
-        # 모델을 학습 모드로 전환
-        self.p_encoder.train()
-        self.q_encoder.train()
-
-        # 학습 시작
-        # 에포크 루프 시작
-        for epoch in range(epochs):
-            total_loss = 0
-            print(f"Epoch {epoch+1}/{epochs}", flush=True)
-
-            # 미니 배치로 나눠 처리 (배치 단위로 학습)
-            for i in tqdm(
-                range(0, len(questions), batch_size), desc="Training progress"
-            ):
-                batch_questions = questions[i : i + batch_size]
-                batch_contexts = contexts[i : i + batch_size]
-
-                # 질문과 문서를 배치 단위로 토크나이징
-                q_inputs = self.q_tokenizer(
-                    batch_questions,
-                    return_tensors="pt",
-                    padding=True,
-                    truncation=True,
-                    max_length=512,
-                ).to(self.q_encoder.device)
-
-                p_inputs = self.p_tokenizer(
-                    batch_contexts,
-                    return_tensors="pt",
-                    padding=True,
-                    truncation=True,
-                    max_length=512,
-                ).to(self.p_encoder.device)
-
-                # 각각 배치 단위로 임베딩 벡터 추출
-                q_embedding = self.q_encoder(
-                    **q_inputs
-                )  # .pooler_output  # (batch_size, hidden_size)
-                p_embedding = self.p_encoder(
-                    **p_inputs
-                )  # .pooler_output  # (batch_size, hidden_size)
-
-                # 유사도 계산 (배치 내 모든 쌍을 고려하여 유사도 행렬을 계산)
-                # q_embedding과 p_embedding의 유사도를 행렬로 계산 (배치 내 음성 샘플 포함)
-                similarity_matrix = torch.matmul(
-                    q_embedding, p_embedding.T
-                )  # (batch_size, batch_size)
-
-                # 정답 라벨 생성 (각 질문은 같은 인덱스의 문서와 매칭되어야 함)
-                target = torch.arange(batch_size).to(similarity_matrix.device)
-
-                # Loss 계산 (CrossEntropyLoss 사용)
-                loss = F.cross_entropy(similarity_matrix, target)
-
-                # 역전파 및 옵티마이저 스텝
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-
-                total_loss += loss.item()
-
-            print(
-                f"Epoch {epoch+1} completed, Average Loss: {total_loss/len(questions)}",
-                flush=True,
-            )
-
-        # 학습 완료 후, 모델 저장
-        if self.args.use_siamese:
-            embedder_path = self.args.p_embedder_name.replace("/", "_")
-            save_path = os.path.join(
-                self.args.model_path,  # .models/embedder
-                f"{self.encoder_type}",  # SDE
-                f"{embedder_path}",
-            )
-            self.p_encoder.save_pretrained(save_path)
-            self.p_tokenizer.save_pretrained(save_path)
-        else:
-            p_embedder_path = self.args.p_embedder_name.replace("/", "_")
-            q_embedder_path = self.args.q_embedder_name.replace("/", "_")
-
-            passage_save_path = os.path.join(
-                self.args.model_path,
-                f"{self.encoder_type}",
-                f"{p_embedder_path}_passage",
-            )
-            query_save_path = os.path.join(
-                self.args.model_path,
-                f"{self.encoder_type}",
-                f"{q_embedder_path}_query",
-            )
-
-            self.p_encoder.save_pretrained(passage_save_path)
-            self.p_tokenizer.save_pretrained(passage_save_path)
-
-            self.q_encoder.save_pretrained(query_save_path)
-            self.q_tokenizer.save_pretrained(query_save_path)
-
-        print("Models and Tokenizers Saved")
-
-        # encoder_pickle_path = os.path.join(
-        #     self.args.model_path, f"encoder_{self.encoder_type}_trained.bin"
-        # )
-        # with open(encoder_pickle_path, "wb") as f:
-        #     pickle.dump((self.p_encoder, self.q_encoder), f)
-        # print(f"Trained encoder saved at {encoder_pickle_path}")
 
     def get_dense_embedding(self) -> NoReturn:
         """
