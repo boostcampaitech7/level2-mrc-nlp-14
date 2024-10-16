@@ -45,7 +45,7 @@ class DenseRetriever(BaseRetriever):
         # p_encoder, q_encoder 로드 또는 초기화
         self.load_encoders()
 
-        self.train_embedder(args)
+        self.train_embedder()
 
         # 임베딩 생성 함수 호출
         self.get_dense_embedding()
@@ -72,7 +72,7 @@ class DenseRetriever(BaseRetriever):
         self.p_encoder.cuda()
         self.q_encoder.cuda()
 
-    def train_embedder(self, args: DenseRetrieverArguments) -> NoReturn:
+    def train_embedder(self) -> NoReturn:
         """
         Train the embedder (p_encoder, q_encoder) using the MRC dataset.
         """
@@ -115,7 +115,7 @@ class DenseRetriever(BaseRetriever):
                 batch_contexts = contexts[i : i + batch_size]
 
                 # 질문과 문서를 배치 단위로 토크나이징
-                q_inputs = self.tokenizer(
+                q_inputs = self.q_tokenizer(
                     batch_questions,
                     return_tensors="pt",
                     padding=True,
@@ -123,7 +123,7 @@ class DenseRetriever(BaseRetriever):
                     max_length=512,
                 ).to(self.q_encoder.device)
 
-                p_inputs = self.tokenizer(
+                p_inputs = self.p_tokenizer(
                     batch_contexts,
                     return_tensors="pt",
                     padding=True,
@@ -165,7 +165,7 @@ class DenseRetriever(BaseRetriever):
 
         # 학습 완료 후, 모델 저장
         encoder_pickle_path = os.path.join(
-            args.local_model_path, f"encoder_{self.encoder_type}_trained.bin"
+            self.args.model_path, f"encoder_{self.encoder_type}_trained.bin"
         )
         with open(encoder_pickle_path, "wb") as f:
             pickle.dump((self.p_encoder, self.q_encoder), f)
