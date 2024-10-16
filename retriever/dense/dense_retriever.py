@@ -11,6 +11,8 @@ import torch
 from transformers import AutoTokenizer
 from tqdm.auto import tqdm
 
+import torch.nn.functional as F
+
 from utils import timer
 
 from base import BaseRetriever
@@ -43,6 +45,8 @@ class DenseRetriever(BaseRetriever):
         # p_encoder, q_encoder 로드 또는 초기화
         self.load_encoders()
 
+        self.train_embedder(args)
+
         # 임베딩 생성 함수 호출
         self.get_dense_embedding()
 
@@ -67,6 +71,91 @@ class DenseRetriever(BaseRetriever):
 
         self.p_encoder.cuda()
         self.q_encoder.cuda()
+
+    def train_embedder(self, args: DenseRetrieverArguments) -> NoReturn:
+        """
+        Train the embedder (p_encoder, q_encoder) using the MRC dataset.
+        """
+
+        # MRC 데이터셋을 불러오기 (데이터 로드 부분)
+        train_data = Dataset.from_file(
+            "/data/ephemeral/mrc/data/train_dataset/train/dataset.arrow"
+        )
+
+        # 데이터 전처리 - 질문과 문서를 준비
+        questions = [item["question"] for item in train_data]
+        contexts = [item["context"] for item in train_data]
+
+        # Learning rate 및 epochs 직접 설정
+        learning_rate = 3e-5
+        epochs = 3  # 에포크 수를 3으로 설정
+
+        # Optimizer 및 Loss 설정 (옵티마이저는 AdamW, loss는 Contrastive Loss로 변경)
+        optimizer = torch.optim.AdamW(
+            list(self.p_encoder.parameters()) + list(self.q_encoder.parameters()),
+            lr=learning_rate,  # 직접 설정한 learning rate 사용
+        )
+
+        # 모델을 학습 모드로 전환
+        self.p_encoder.train()
+        self.q_encoder.train()
+
+        # 학습 시작
+        for epoch in range(epochs):
+            total_loss = 0
+
+            for idx, (question, context) in enumerate(
+                tqdm(zip(questions, contexts), desc=f"Epoch {epoch+1}")
+            ):
+                # 질문과 문서를 각각 임베딩
+                q_inputs = self.tokenizer(
+                    question,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    max_length=512,
+                ).to(self.q_encoder.device)
+
+                p_inputs = self.tokenizer(
+                    context,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    max_length=512,
+                ).to(self.p_encoder.device)
+
+                # 각각 임베딩 벡터 추출
+                q_embedding = self.q_encoder(**q_inputs)
+                p_embedding = self.p_encoder(**p_inputs)
+
+                # 유사도 계산 (cosine similarity 사용)
+                similarity = F.cosine_similarity(q_embedding, p_embedding)
+
+                # 대조 학습에서는 긍정/부정 쌍을 구분하기 위해 라벨 설정 (긍정 쌍은 1, 부정 쌍은 -1)
+                # 여기서는 긍정 쌍을 처리하는 예시
+                target = torch.ones(q_embedding.size(0)).to(
+                    similarity.device
+                )  # 긍정 쌍은 1로 설정
+
+                # Loss 계산 (Cosine Embedding Loss 사용)
+                loss = F.cosine_embedding_loss(q_embedding, p_embedding, target)
+
+                # 역전파 및 옵티마이저 스텝
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+                total_loss += loss.item()
+
+            print(f"Epoch {epoch+1}, Loss: {total_loss/len(questions)}")
+
+        # 학습 완료 후, 모델 저장
+        encoder_pickle_path = os.path.join(
+            args.local_model_path, f"encoder_{self.encoder_type}_trained.bin"
+        )
+        with open(encoder_pickle_path, "wb") as f:
+            pickle.dump((self.p_encoder, self.q_encoder), f)
+        print(f"Trained encoder saved at {encoder_pickle_path}")
 
     def get_dense_embedding(self) -> NoReturn:
         """
