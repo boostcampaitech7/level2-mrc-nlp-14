@@ -89,6 +89,7 @@ class DenseRetriever(BaseRetriever):
         # Learning rate 및 epochs 직접 설정
         learning_rate = 3e-5
         epochs = 3  # 에포크 수를 3으로 설정
+        batch_size = 16
 
         # Optimizer 및 Loss 설정 (옵티마이저는 AdamW, loss는 Contrastive Loss로 변경)
         optimizer = torch.optim.AdamW(
@@ -101,15 +102,21 @@ class DenseRetriever(BaseRetriever):
         self.q_encoder.train()
 
         # 학습 시작
+        # 에포크 루프 시작
         for epoch in range(epochs):
             total_loss = 0
+            print(f"Epoch {epoch+1}/{epochs}", flush=True)
 
-            for idx, (question, context) in enumerate(
-                tqdm(zip(questions, contexts), desc=f"Epoch {epoch+1}")
+            # 미니 배치로 나눠 처리 (배치 단위로 학습)
+            for i in tqdm(
+                range(0, len(questions), batch_size), desc="Training progress"
             ):
-                # 질문과 문서를 각각 임베딩
+                batch_questions = questions[i : i + batch_size]
+                batch_contexts = contexts[i : i + batch_size]
+
+                # 질문과 문서를 배치 단위로 토크나이징
                 q_inputs = self.tokenizer(
-                    question,
+                    batch_questions,
                     return_tensors="pt",
                     padding=True,
                     truncation=True,
@@ -117,28 +124,32 @@ class DenseRetriever(BaseRetriever):
                 ).to(self.q_encoder.device)
 
                 p_inputs = self.tokenizer(
-                    context,
+                    batch_contexts,
                     return_tensors="pt",
                     padding=True,
                     truncation=True,
                     max_length=512,
                 ).to(self.p_encoder.device)
 
-                # 각각 임베딩 벡터 추출
-                q_embedding = self.q_encoder(**q_inputs)
-                p_embedding = self.p_encoder(**p_inputs)
+                # 각각 배치 단위로 임베딩 벡터 추출
+                q_embedding = self.q_encoder(
+                    **q_inputs
+                )  # .pooler_output  # (batch_size, hidden_size)
+                p_embedding = self.p_encoder(
+                    **p_inputs
+                )  # .pooler_output  # (batch_size, hidden_size)
 
-                # 유사도 계산 (cosine similarity 사용)
-                similarity = F.cosine_similarity(q_embedding, p_embedding)
+                # 유사도 계산 (배치 내 모든 쌍을 고려하여 유사도 행렬을 계산)
+                # q_embedding과 p_embedding의 유사도를 행렬로 계산 (배치 내 음성 샘플 포함)
+                similarity_matrix = torch.matmul(
+                    q_embedding, p_embedding.T
+                )  # (batch_size, batch_size)
 
-                # 대조 학습에서는 긍정/부정 쌍을 구분하기 위해 라벨 설정 (긍정 쌍은 1, 부정 쌍은 -1)
-                # 여기서는 긍정 쌍을 처리하는 예시
-                target = torch.ones(q_embedding.size(0)).to(
-                    similarity.device
-                )  # 긍정 쌍은 1로 설정
+                # 정답 라벨 생성 (각 질문은 같은 인덱스의 문서와 매칭되어야 함)
+                target = torch.arange(batch_size).to(similarity_matrix.device)
 
-                # Loss 계산 (Cosine Embedding Loss 사용)
-                loss = F.cosine_embedding_loss(q_embedding, p_embedding, target)
+                # Loss 계산 (CrossEntropyLoss 사용)
+                loss = F.cross_entropy(similarity_matrix, target)
 
                 # 역전파 및 옵티마이저 스텝
                 optimizer.zero_grad()
@@ -147,7 +158,10 @@ class DenseRetriever(BaseRetriever):
 
                 total_loss += loss.item()
 
-            print(f"Epoch {epoch+1}, Loss: {total_loss/len(questions)}")
+            print(
+                f"Epoch {epoch+1} completed, Average Loss: {total_loss/len(questions)}",
+                flush=True,
+            )
 
         # 학습 완료 후, 모델 저장
         encoder_pickle_path = os.path.join(
