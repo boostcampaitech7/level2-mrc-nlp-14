@@ -8,7 +8,7 @@ import numpy as np
 from datasets import Dataset
 
 import torch
-from transformers import AutoTokenizer
+from transformers import AutoModel, AutoTokenizer
 from tqdm.auto import tqdm
 
 import torch.nn.functional as F
@@ -164,12 +164,44 @@ class DenseRetriever(BaseRetriever):
             )
 
         # 학습 완료 후, 모델 저장
-        encoder_pickle_path = os.path.join(
-            self.args.model_path, f"encoder_{self.encoder_type}_trained.bin"
-        )
-        with open(encoder_pickle_path, "wb") as f:
-            pickle.dump((self.p_encoder, self.q_encoder), f)
-        print(f"Trained encoder saved at {encoder_pickle_path}")
+        if self.args.use_siamese:
+            embedder_path = self.args.p_embedder_name.replace("/", "_")
+            save_path = os.path.join(
+                self.args.model_path,  # .models/embedder
+                f"{self.encoder_type}",  # SDE
+                f"{embedder_path}",
+            )
+            self.p_encoder.save_pretrained(save_path)
+            self.p_tokenizer.save_pretrained(save_path)
+        else:
+            p_embedder_path = self.args.p_embedder_name.replace("/", "_")
+            q_embedder_path = self.args.q_embedder_name.replace("/", "_")
+
+            passage_save_path = os.path.join(
+                self.args.model_path,
+                f"{self.encoder_type}",
+                f"{p_embedder_path}_passage",
+            )
+            query_save_path = os.path.join(
+                self.args.model_path,
+                f"{self.encoder_type}",
+                f"{q_embedder_path}_query",
+            )
+
+            self.p_encoder.save_pretrained(passage_save_path)
+            self.p_tokenizer.save_pretrained(passage_save_path)
+
+            self.q_encoder.save_pretrained(query_save_path)
+            self.q_tokenizer.save_pretrained(query_save_path)
+
+        print("Models and Tokenizers Saved")
+
+        # encoder_pickle_path = os.path.join(
+        #     self.args.model_path, f"encoder_{self.encoder_type}_trained.bin"
+        # )
+        # with open(encoder_pickle_path, "wb") as f:
+        #     pickle.dump((self.p_encoder, self.q_encoder), f)
+        # print(f"Trained encoder saved at {encoder_pickle_path}")
 
     def get_dense_embedding(self) -> NoReturn:
         """
