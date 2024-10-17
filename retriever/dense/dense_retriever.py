@@ -8,10 +8,8 @@ import numpy as np
 from datasets import Dataset
 
 import torch
-from transformers import AutoModel, AutoTokenizer
+from transformers import AutoTokenizer
 from tqdm.auto import tqdm
-
-import torch.nn.functional as F
 
 from utils import timer
 
@@ -44,8 +42,6 @@ class DenseRetriever(BaseRetriever):
 
         # p_encoder, q_encoder 로드 또는 초기화
         self.load_encoders()
-
-        # self.train_embedder()
 
         # 임베딩 생성 함수 호출
         self.get_dense_embedding()
