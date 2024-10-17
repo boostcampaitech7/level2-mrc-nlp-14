@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from tqdm.auto import tqdm
-from datasets import Dataset
+from datasets import load_from_disk
 import os
 from transformers import AutoTokenizer, set_seed
 from args import RetrieverArguments
@@ -14,11 +14,9 @@ from transformers import set_seed
 
 # 학습 함수 정의
 def train_embedder(args: DenseRetrieverArguments):
-    # 시드 설정 (재현성을 위해)
-    set_seed(42)
 
     # MRC 데이터셋 불러오기
-    train_data = Dataset.from_file("./data/train_dataset/train/dataset.arrow")
+    train_data = load_from_disk("./data/train_dataset")["train"]
 
     # question과 context 준비
     questions = [item["question"] for item in train_data]
@@ -122,6 +120,9 @@ def train_embedder(args: DenseRetrieverArguments):
 if __name__ == "__main__":
     # DenseRetrieverArguments를 불러오고 필요 시 인자 설정
     args = DenseRetrieverArguments(retriever_args=RetrieverArguments)
+
+    # 시드 설정 (재현성을 위해)
+    set_seed(42)
 
     # 학습 함수 실행
     train_embedder(args)
