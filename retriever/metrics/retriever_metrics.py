@@ -6,8 +6,21 @@ class RetrieverMetrics:
         self.df = df
 
     def eval(self):
-        print("recall@5: ", self.recall_at_k(5))
-        print("MRR: ", self.mean_reciprocal_rank())
+        result = {}
+        result["recall@1"] = self.recall_at_k(1)
+        result["recall@5"] = self.recall_at_k(5)
+        result["recall@10"] = self.recall_at_k(10)
+        result["recall@30"] = self.recall_at_k(30)
+        result["recall@50"] = self.recall_at_k(50)
+        result["MRR"] = self.mean_reciprocal_rank()
+
+        # Print the results in a tabular format
+        print(f"{'Metric':<15} {'Value':<10}")
+        print("-" * 25)
+        for key, value in result.items():
+            print(f"{key:<15} {value:<10.4f}")
+
+        return result
 
     def recall_at_k(self, k: int) -> float:
         total_relevant_docs = 0
