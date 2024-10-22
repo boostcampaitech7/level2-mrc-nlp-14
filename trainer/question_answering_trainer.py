@@ -16,8 +16,10 @@
 Question-Answering task와 관련된 'Trainer'의 subclass 코드 입니다.
 """
 
-from typing import Tuple
+from typing import Tuple, Optional
 import numpy as np
+import torch
+import torch.nn.functional as F
 
 from transformers import (
     Trainer,
@@ -46,6 +48,8 @@ class QuestionAnsweringTrainer(Trainer):
         max_answer_length=512,
         answer_column_name=None,
         use_no_answer: bool = False,
+        use_custom_loss: bool = False,
+        custom_loss_weight: float = 0.1,
         **kwargs
     ):
         super().__init__(*args, **kwargs)
@@ -53,6 +57,8 @@ class QuestionAnsweringTrainer(Trainer):
         self.max_answer_length = max_answer_length
         self.answer_column_name = answer_column_name
         self.use_no_answer = use_no_answer
+        self.use_custom_loss = use_custom_loss
+        self.custom_loss_weight = custom_loss_weight
         self.metric = load_metric("squad")
         self.setup()
 
@@ -177,3 +183,126 @@ class QuestionAnsweringTrainer(Trainer):
             test_examples, test_dataset, output.predictions
         )
         return predictions
+    
+    def compute_loss(self, model, inputs, return_outputs=False):
+        if self.use_custom_loss and self.tokenizer is not None:
+            if model.training:
+                outputs = model(**inputs)
+                total_loss = outputs.loss
+
+                # 어텐션 가중치 추출
+                attentions = outputs.attentions[-1]  # (batch_size, num_heads, seq_len, seq_len)
+                attention_weights = attentions.mean(dim=1)  # (batch_size, seq_len, seq_len) 
+
+                batch_size, seq_len, _ = attention_weights.size()
+                device = attention_weights.device
+
+                # token_type_ids 생성 (Question과 Context 구분) token_type_ids를 사용하지 않는 roberta 모델이므로 직접 id부여 
+                input_ids = inputs['input_ids']
+                token_type_ids = torch.zeros_like(input_ids, dtype=torch.long, device=device)
+                sep_token_id = self.tokenizer.sep_token_id
+
+                for i in range(batch_size):
+                    sep_indices = (input_ids[i] == sep_token_id).nonzero(as_tuple=False).squeeze()
+                    if sep_indices.numel() >= 1:
+                        first_sep_index = sep_indices[0].item()
+                        token_type_ids[i, first_sep_index + 1:] = 1  # Context 부분을 1로 설정
+
+                # 마스크 생성
+                question_mask = (token_type_ids == 0)  # (batch_size, seq_len)
+                context_mask = (token_type_ids == 1)  # (batch_size, seq_len)
+
+                # Answer 토큰의 위치 추출
+                start_positions = inputs["start_positions"]  # (batch_size)
+                end_positions = inputs["end_positions"]  # (batch_size)
+
+                # Answer 토큰의 마스크 생성
+                answer_mask = torch.zeros_like(input_ids, dtype=torch.bool, device=device)
+                for i in range(batch_size):
+                    answer_mask[i, start_positions[i]:end_positions[i]+1] = True
+
+                # Question과 Answer와 사이의 어텐션 점수를 계산해서 가중치 부여 (간단하긴 하지만 최선이라고는 장담못함)
+
+                # answer의 어텐션 점수분포를 question이 가지는 attention 점수분포와 일치시켜서 가중치로 사용 
+                answer_to_question_attention = attention_weights.masked_fill(
+                    ~answer_mask.unsqueeze(2), 0.0
+                )
+                answer_to_question_attention = answer_to_question_attention.masked_fill(
+                    ~question_mask.unsqueeze(1), 0.0
+                )
+                # Answer에서 Question으로의 어텐션 분포 (batch_size, seq_len)
+                answer_to_question = answer_to_question_attention.sum(dim=1)  # (batch_size, seq_len)
+                answer_to_question = answer_to_question * question_mask.float()
+                answer_to_question = answer_to_question + 1e-12
+                # 정규화
+                answer_to_question_weight = answer_to_question / answer_to_question.sum(dim=1, keepdim=True)
+
+                '''
+                # question 어텐션 점수분포를 answer이 가지는 attention 점수분포와 일치시켜서 가중치로 사용 
+                question_to_answer_attention = attention_weights.masked_fill(
+                    ~question_mask.unsqueeze(2), 0.0
+                )
+                question_to_answer_attention = question_to_answer_attention.masked_fill(
+                    ~answer_mask.unsqueeze(1), 0.0
+                )
+                # Question에서 Answer으로의 어텐션 분포 (batch_size, seq_len)
+                question_to_answer = question_to_answer_attention.sum(dim=1)  # (batch_size, seq_len)
+                question_to_answer = question_to_answer * question_mask.float()
+                question_to_answer = question_to_answer + 1e-12
+                # 정규화
+                question_to_answer_weight = question_to_answer / question_to_answer.sum(dim=1, keepdim=True)
+                '''
+
+                importance_weights = answer_to_question_weight #question_to_answer_weight 
+
+                # 어텐션 가중치에서 Question에서 Context로의 어텐션 분포 계산 
+                # Query: Question 토큰, Key: Context 토큰
+                question_to_context_attention = attention_weights.masked_fill(
+                    ~question_mask.unsqueeze(2), 0.0
+                )
+                question_to_context_attention = question_to_context_attention.masked_fill(
+                    ~context_mask.unsqueeze(1), 0.0
+                )
+                # 중요도 가중치 적용 (가중 평균 적용x)
+                #question_to_context_attention = question_to_context_attention * importance_weights.unsqueeze(2)
+                question_context_attention = question_to_context_attention.sum(dim=1)  # (batch_size, seq_len)
+                question_context_attention = question_context_attention * context_mask.float()
+                question_context_probs = question_context_attention + 1e-12
+                # 정규화 
+                question_context_probs = question_context_probs / question_context_probs.sum(dim=1, keepdim=True)
+
+                # 어텐션 가중치에서 Answer에서 Context로의 어텐션 분포 계산
+                # Query: Answer 토큰, Key: Context 토큰
+                answer_to_context_attention = attention_weights.masked_fill(
+                    ~answer_mask.unsqueeze(2), 0.0
+                )
+                answer_to_context_attention = answer_to_context_attention.masked_fill(
+                    ~context_mask.unsqueeze(1), 0.0
+                )
+                # 중요도 가중치 적용 (가중 평균 적용o)
+                answer_to_context_attention = answer_to_context_attention * importance_weights.unsqueeze(2)
+                answer_context_attention = answer_to_context_attention.sum(dim=1)  # (batch_size, seq_len)
+                answer_context_attention = answer_context_attention * context_mask.float()
+                answer_context_probs = answer_context_attention + 1e-12
+                # 정규화
+                answer_context_probs = answer_context_probs / answer_context_probs.sum(dim=1, keepdim=True)
+
+                # KL Divergence 계산
+                kl_loss = F.kl_div(
+                    answer_context_probs.log(),      # question_context_probs
+                    question_context_probs,          # answer_context_probs
+                    reduction='batchmean'
+                )
+
+                # 총 손실에 어텐션 손실 추가
+                total_loss = total_loss + (self.custom_loss_weight * kl_loss)  # 가중치는 필요에 따라 조정
+            else:
+                outputs = model(**inputs)
+                total_loss = outputs.loss
+
+            if return_outputs:
+                return total_loss, outputs
+            else:
+                return total_loss 
+        else:
+            return super().compute_loss(model, inputs, return_outputs)
