@@ -138,7 +138,7 @@ class BM25Retriever(BaseRetriever):
                     "question": example["question"],
                     "id": example["id"],
                     # Retrieve한 Passage의 id, context를 반환합니다.
-                    "context": " ".join(
+                    "context": self.passage_seperator.join(
                         [self.contexts[pid] for pid in doc_indices[idx]]
                     ),
                 }

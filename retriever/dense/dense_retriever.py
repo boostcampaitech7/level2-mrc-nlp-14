@@ -165,7 +165,7 @@ class DenseRetriever(BaseRetriever):
                 tmp = {
                     "question": example["question"],
                     "id": example["id"],
-                    "context": " ".join(
+                    "context": self.passage_seperator.join(
                         [self.contexts[pid] for pid in doc_indices[idx]]
                     ),
                 }

@@ -23,8 +23,10 @@ if __name__ == "__main__":
             RetrieverArguments,
         )
     )
-    model_args, training_args, retriever_args = parser.parse_args_into_dataclasses()
-
+    args: tuple[ModelArguments, DataTrainingArguments, RetrieverArguments] = (
+        parser.parse_args_into_dataclasses()
+    )
+    model_args, training_args, retriever_args = args
     # Test sparse
     org_dataset = load_from_disk(training_args.dataset_name)
     full_ds = concatenate_datasets(
@@ -54,6 +56,9 @@ if __name__ == "__main__":
             print("correct retrieval result by faiss", df["correct"].sum() / len(df))
 
     else:
+        with timer("single query by exhaustive search"):
+            scores, indices = retriever.retrieve(query)
+
         with timer("bulk query by exhaustive search"):
             df = retriever.retrieve(full_ds)
             df["correct"] = df["original_context"] == df["context"]
@@ -61,6 +66,3 @@ if __name__ == "__main__":
                 "correct retrieval result by exhaustive search",
                 df["correct"].sum() / len(df),
             )
-
-        with timer("single query by exhaustive search"):
-            scores, indices = retriever.retrieve(query)
