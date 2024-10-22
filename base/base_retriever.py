@@ -13,9 +13,17 @@ class BaseRetriever(ABC):
     """
 
     def __init__(self, data_path: Optional[str]):
+        self.passage_seperator = " [SEP] "
         self.data_path = data_path
         self.p_embedding = None  # get_sparse_embedding()로 생성합니다
         self.indexer = None  # build_faiss()로 생성합니다.
+
+    def split_passage(self, passage: str) -> List[str]:
+        """
+        Summary:
+            Passage를 self.passage_seperator를 기준으로 나눕니다.
+        """
+        return passage.split(self.passage_seperator)
 
     def build_faiss(self, num_clusters=64):
         """
