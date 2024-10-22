@@ -28,6 +28,25 @@ def recall_at_k(df: pd.DataFrame, k: int) -> float:
     return recall
 
 
+def mean_reciprocal_rank(df: pd.DataFrame) -> float:
+    reciprocal_ranks = []
+    for _, row in df.iterrows():
+        retrieved_docs = row["context_list"]
+        relevant_doc = row["original_context"]
+
+        # 정답 문서가 검색 결과에서 몇 번째에 있는지 찾기
+        if relevant_doc in retrieved_docs:
+            rank = (
+                retrieved_docs.index(relevant_doc) + 1
+            )  # 인덱스는 0부터 시작하므로 +1
+            reciprocal_ranks.append(1 / rank)
+        else:
+            reciprocal_ranks.append(0)
+
+    mrr = sum(reciprocal_ranks) / len(reciprocal_ranks)
+    return mrr
+
+
 if __name__ == "__main__":
 
     parser = HfArgumentParser(
@@ -77,3 +96,4 @@ if __name__ == "__main__":
             df = retriever.retrieve(full_ds, topk=50)
             df["context_list"] = df["context"].apply(retriever.split_passage)
             print("recall@5: ", recall_at_k(df, 5))
+            print("MRR: ", mean_reciprocal_rank(df))
