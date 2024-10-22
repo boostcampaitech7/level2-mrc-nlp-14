@@ -7,20 +7,24 @@ from transformers import (
 
 class QuestionAnsweringModelLoader:
     def __init__(self, model_args):
-        if model_args.use_custom_loss==True:
+        if model_args.use_custom_loss == True:
             config = AutoConfig.from_pretrained(
-            model_args.config_name
-            if model_args.config_name is not None
-            else model_args.model_name_or_path,
-            output_attentions=True
-        )
+                (
+                    model_args.config_name
+                    if model_args.config_name is not None
+                    else model_args.model_name_or_path
+                ),
+                output_attentions=True,
+            )
         else:
             config = AutoConfig.from_pretrained(
-            model_args.config_name
-            if model_args.config_name is not None
-            else model_args.model_name_or_path,
-            output_attentions=False
-        )
+                (
+                    model_args.config_name
+                    if model_args.config_name is not None
+                    else model_args.model_name_or_path
+                ),
+                output_attentions=False,
+            )
 
         self.model = AutoModelForQuestionAnswering.from_pretrained(
             model_args.model_name_or_path,
