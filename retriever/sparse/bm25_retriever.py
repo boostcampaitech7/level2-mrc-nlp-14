@@ -36,6 +36,7 @@ class BM25Retriever(BaseRetriever):
         Summary:
             Passage 파일을 불러오고 BM25Vectorizer를 선언하는 기능을 합니다.
         """
+        super().__init__(args.data_path)
         self.tokenize_fn = args.get_tokenizer().tokenize
 
         self.data_path = args.data_path
