@@ -7,7 +7,7 @@ import wandb
 from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
 from model import QuestionAnsweringModelLoader
 from data_loader import TextDataLoader
-from datasets import DatasetDict, load_from_disk
+from datasets import DatasetDict
 from additionaldata import UseSimilarData
 from trainer import QuestionAnsweringTrainer
 from transformers import (
