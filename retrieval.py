@@ -1,50 +1,18 @@
 import random
 
 import numpy as np
-import pandas as pd
 from datasets import concatenate_datasets, load_from_disk
 
 from retriever import create_retriever
 from utils import timer
 from transformers import HfArgumentParser
 from args import ModelArguments, DataTrainingArguments, RetrieverArguments
+from retriever.metrics import RetrieverMetrics
 
 
 seed = 2024
 random.seed(seed)  # python random seed 고정
 np.random.seed(seed)  # numpy random seed 고정
-
-
-def recall_at_k(df: pd.DataFrame, k: int) -> float:
-    total_relevant_docs = 0
-    relevant_retrieved = 0
-    for _, row in df.iterrows():
-        retrieved_docs = row["context_list"][:k]
-        relevant_doc = row["original_context"]  # original_context가 단일 문서일 때
-        relevant_retrieved += sum([1 for doc in retrieved_docs if doc == relevant_doc])
-        total_relevant_docs += 1
-
-    recall = relevant_retrieved / total_relevant_docs
-    return recall
-
-
-def mean_reciprocal_rank(df: pd.DataFrame) -> float:
-    reciprocal_ranks = []
-    for _, row in df.iterrows():
-        retrieved_docs = row["context_list"]
-        relevant_doc = row["original_context"]
-
-        # 정답 문서가 검색 결과에서 몇 번째에 있는지 찾기
-        if relevant_doc in retrieved_docs:
-            rank = (
-                retrieved_docs.index(relevant_doc) + 1
-            )  # 인덱스는 0부터 시작하므로 +1
-            reciprocal_ranks.append(1 / rank)
-        else:
-            reciprocal_ranks.append(0)
-
-    mrr = sum(reciprocal_ranks) / len(reciprocal_ranks)
-    return mrr
 
 
 if __name__ == "__main__":
@@ -83,10 +51,7 @@ if __name__ == "__main__":
 
         # test bulk
         with timer("bulk query by exhaustive search"):
-            df = retriever.retrieve_faiss(full_ds)
-            df["correct"] = df["original_context"] == df["context"]
-
-            print("correct retrieval result by faiss", df["correct"].sum() / len(df))
+            df = retriever.retrieve_faiss(full_ds, topk=50)
 
     else:
         with timer("single query by exhaustive search"):
@@ -94,6 +59,7 @@ if __name__ == "__main__":
 
         with timer("bulk query by exhaustive search"):
             df = retriever.retrieve(full_ds, topk=50)
-            df["context_list"] = df["context"].apply(retriever.split_passage)
-            print("recall@5: ", recall_at_k(df, 5))
-            print("MRR: ", mean_reciprocal_rank(df))
+
+    df["context_list"] = df["context"].apply(retriever.split_passage)
+    retriever_metrics = RetrieverMetrics(df)
+    retriever_metrics.eval()
