@@ -61,5 +61,9 @@ if __name__ == "__main__":
             df = retriever.retrieve(full_ds, topk=50)
 
     df["context_list"] = df["context"].apply(retriever.split_passage)
-    retriever_metrics = RetrieverMetrics(df)
+    retriever_metrics = RetrieverMetrics(
+        df=df,
+        retrieved_documents_label="context_list",
+        original_document_label="original_context",
+    )
     retriever_metrics.eval()
