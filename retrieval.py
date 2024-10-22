@@ -1,6 +1,7 @@
 import random
 
 import numpy as np
+import pandas as pd
 from datasets import concatenate_datasets, load_from_disk
 
 from retriever import create_retriever
@@ -12,6 +13,19 @@ from args import ModelArguments, DataTrainingArguments, RetrieverArguments
 seed = 2024
 random.seed(seed)  # python random seed 고정
 np.random.seed(seed)  # numpy random seed 고정
+
+
+def recall_at_k(df: pd.DataFrame, k: int) -> float:
+    total_relevant_docs = 0
+    relevant_retrieved = 0
+    for _, row in df.iterrows():
+        retrieved_docs = row["context_list"][:k]
+        relevant_doc = row["original_context"]  # original_context가 단일 문서일 때
+        relevant_retrieved += sum([1 for doc in retrieved_docs if doc == relevant_doc])
+        total_relevant_docs += 1
+
+    recall = relevant_retrieved / total_relevant_docs
+    return recall
 
 
 if __name__ == "__main__":
@@ -60,9 +74,6 @@ if __name__ == "__main__":
             scores, indices = retriever.retrieve(query)
 
         with timer("bulk query by exhaustive search"):
-            df = retriever.retrieve(full_ds)
-            df["correct"] = df["original_context"] == df["context"]
-            print(
-                "correct retrieval result by exhaustive search",
-                df["correct"].sum() / len(df),
-            )
+            df = retriever.retrieve(full_ds, topk=50)
+            df["context_list"] = df["context"].apply(retriever.split_passage)
+            print("recall@5: ", recall_at_k(df, 5))
