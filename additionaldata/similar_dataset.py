@@ -9,7 +9,6 @@ from datasets import (
     Sequence,
     Value,
 )
-import os
 
 
 class UseSimilarData:
