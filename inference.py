@@ -20,7 +20,7 @@ from datasets import (
     DatasetDict,
     load_from_disk,
 )
-from retriever import run_sparse_retrieval, run_2stage_retrieval
+from retriever import run_1stage_retrieval, run_2stage_retrieval
 from trainer import QuestionAnsweringTrainer
 from transformers import (
     HfArgumentParser,

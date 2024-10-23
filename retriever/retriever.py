@@ -27,7 +27,7 @@ def create_retriever(retriever_args: RetrieverArguments) -> BaseRetriever:
         raise ValueError(f"Invalid retriever type: {type}")
 
 
-def run_sparse_retrieval(
+def run_1stage_retrieval(
     datasets: DatasetDict,
     training_args: CustomTrainingArguments,
     data_args: DataTrainingArguments,
