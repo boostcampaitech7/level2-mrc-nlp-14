@@ -12,6 +12,9 @@ from base import BaseRetriever
 
 from sentence_transformers import CrossEncoder
 
+### 하드코딩된 부분 ###
+# line 129 : cross_encoder_model_name
+
 
 def create_retriever(retriever_args: RetrieverArguments) -> BaseRetriever:
     if retriever_args.retrieval_type == "sparse":
@@ -123,8 +126,9 @@ def run_2stage_retrieval(
     exposed_passages = sum(passages, [])
 
     # 두 번째 단계: Cross-Encoder로 재랭킹
+    cross_encoder_model_name = "models/2nd_embedder/beomi_kcbert-base_cross-encoder"
     cross_encoder_model = CrossEncoder(
-        "cross-encoder/ms-marco-MiniLM-L-6-v2"
+        cross_encoder_model_name
     )  # Cross-Encoder 모델 로드
     relevance_scores = cross_encoder_rerank(
         cross_encoder_model, expanded_queries, exposed_passages
