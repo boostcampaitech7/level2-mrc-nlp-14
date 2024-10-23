@@ -16,7 +16,7 @@
 Question-Answering task와 관련된 'Trainer'의 subclass 코드 입니다.
 """
 
-from typing import Tuple, Optional
+from typing import Tuple
 import numpy as np
 import torch
 import torch.nn.functional as F
