@@ -81,16 +81,25 @@ def run_1stage_retrieval(
 
 
 def cross_encoder_rerank(cross_encoder_model, queries, passages):
-    # queries와 passages가 개별적인 문자열로 되어있는지 확인
-    assert isinstance(queries[0], str), "Each query should be a string."
-    assert isinstance(passages[0], str), "Each passage should be a string."
 
     # Cross-Encoder로 query와 passage 쌍에 대한 relevance score 계산
-    input_pairs = list(zip(queries, passages))  # query와 passage를 하나의 쌍으로 묶음
+    input_pairs = [
+        (queries[idx], passage)
+        for idx, one_passages in enumerate(passages)
+        for passage in one_passages
+    ]  # query와 passage를 하나의 쌍으로 묶음
     scores = cross_encoder_model.predict(
         input_pairs
     )  # Cross-Encoder로 예측 (relevance scores)
-    return scores
+
+    # Relevance score를 원래 데이터프레임에 추가 (이때, 전체 개별 passage들의 relevance score가 반환됨)
+    num_passages_per_query = len(passages[0])  # top k 만큼
+    relevance_scores_per_query = [
+        scores[i : i + num_passages_per_query]
+        for i in range(0, len(scores), num_passages_per_query)
+    ]
+
+    return relevance_scores_per_query
 
 
 def run_2stage_retrieval(
@@ -117,34 +126,19 @@ def run_2stage_retrieval(
         .tolist()
     )
 
-    # 각 query를 top-k만큼 반복
-    expanded_queries = [
-        query for query in queries for _ in range(data_args.top_k_retrieval)
-    ]
-
-    # passages의 리스트의 리스트를 풀어서 str의 리스트로 변환
-    exposed_passages = sum(passages, [])
-
     # 두 번째 단계: Cross-Encoder로 재랭킹
     cross_encoder_model_name = "models/2nd_embedder/beomi_kcbert-base_cross-encoder"
     cross_encoder_model = CrossEncoder(
         cross_encoder_model_name
     )  # Cross-Encoder 모델 로드
-    relevance_scores = cross_encoder_rerank(
-        cross_encoder_model, expanded_queries, exposed_passages
+    relevance_scores_per_query = cross_encoder_rerank(
+        cross_encoder_model, queries, passages
     )
     print("Second Retrieval Done")
 
-    # Relevance score를 원래 데이터프레임에 추가 (이때, 전체 개별 passage들의 relevance score가 반환됨)
-    num_passages_per_query = data_args.top_k_retrieval
-    relevance_scores_per_query = [
-        relevance_scores[i : i + num_passages_per_query]
-        for i in range(0, len(relevance_scores), num_passages_per_query)
-    ]
-
     # Query마다 top-n (예: top-5) passage들만 선택해서 다시 묶음
     selected_passages = [
-        " [SEP] ".join(
+        first_retriever.passage_seperator.join(
             [
                 passage
                 for _, passage in sorted(zip(scores, passage_set), reverse=True)[
