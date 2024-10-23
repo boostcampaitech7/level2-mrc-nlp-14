@@ -13,7 +13,7 @@ import pandas as pd
 from sentence_transformers import CrossEncoder
 
 ### 하드코딩된 부분 ###
-# line 129 : cross_encoder_model_name
+# line 116 : cross_encoder_model_name
 
 
 def create_retriever(retriever_args: RetrieverArguments) -> BaseRetriever:
