@@ -64,7 +64,7 @@ class DataTrainingArguments:
     top_n_retrieval: int = field(
         default=5,
         metadata={
-            "help": "Define how many top-k passages to retrieve based on similarity."
+            "help": "Select top-n passages from the top-k set for final retrieval, used only when use_rerank is set to True."
         },
     )
     use_faiss: bool = field(
