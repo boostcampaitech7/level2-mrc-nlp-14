@@ -20,7 +20,7 @@ from datasets import (
     DatasetDict,
     load_from_disk,
 )
-from retriever import run_sparse_retrieval
+from retriever import run_sparse_retrieval, run_2stage_retrieval
 from trainer import QuestionAnsweringTrainer
 from transformers import (
     HfArgumentParser,
@@ -66,7 +66,7 @@ def main():
     model, tokenizer = model_loader.get_model_tokenizer()
 
     if data_args.eval_retrieval:
-        datasets = run_sparse_retrieval(
+        datasets = run_2stage_retrieval(
             datasets,
             training_args,
             data_args,

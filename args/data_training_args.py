@@ -61,6 +61,12 @@ class DataTrainingArguments:
             "help": "Define how many top-k passages to retrieve based on similarity."
         },
     )
+    top_n_retrieval: int = field(
+        default=5,
+        metadata={
+            "help": "Define how many top-k passages to retrieve based on similarity."
+        },
+    )
     use_faiss: bool = field(
         default=False, metadata={"help": "Whether to build with faiss"}
     )
