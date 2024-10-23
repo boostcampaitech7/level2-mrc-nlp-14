@@ -7,6 +7,7 @@ from retriever import create_retriever
 from utils import timer
 from transformers import HfArgumentParser
 from args import ModelArguments, DataTrainingArguments, RetrieverArguments
+from retriever.metrics import RetrieverMetrics
 
 
 seed = 2024
@@ -50,19 +51,19 @@ if __name__ == "__main__":
 
         # test bulk
         with timer("bulk query by exhaustive search"):
-            df = retriever.retrieve_faiss(full_ds)
-            df["correct"] = df["original_context"] == df["context"]
-
-            print("correct retrieval result by faiss", df["correct"].sum() / len(df))
+            df = retriever.retrieve_faiss(full_ds, topk=50)
 
     else:
         with timer("single query by exhaustive search"):
             scores, indices = retriever.retrieve(query)
 
         with timer("bulk query by exhaustive search"):
-            df = retriever.retrieve(full_ds)
-            df["correct"] = df["original_context"] == df["context"]
-            print(
-                "correct retrieval result by exhaustive search",
-                df["correct"].sum() / len(df),
-            )
+            df = retriever.retrieve(full_ds, topk=50)
+
+    df["context_list"] = df["context"].apply(retriever.split_passage)
+    retriever_metrics = RetrieverMetrics(
+        df=df,
+        retrieved_documents_label="context_list",
+        original_document_label="original_context",
+    )
+    retriever_metrics.eval()
