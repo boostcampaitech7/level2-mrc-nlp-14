@@ -39,3 +39,9 @@ class RetrieverArguments:
         default="klue/bert-base",
         metadata={"help": "Define which embedding method to use."},
     )
+    use_rerank: bool = field(
+        default=True,
+        metadata={
+            "help": "Define whether to use siamese network for dense retrieval. Two siamese models will be created with p_embedder."
+        },
+    )

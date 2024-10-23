@@ -20,7 +20,7 @@ from datasets import (
     DatasetDict,
     load_from_disk,
 )
-from retriever import run_1stage_retrieval, run_2stage_retrieval
+from retriever import run_retrieval
 from trainer import QuestionAnsweringTrainer
 from transformers import (
     HfArgumentParser,
@@ -43,9 +43,15 @@ def main():
             RetrieverArguments,
         )
     )
-    model_args, data_args, training_args, retriever_args = (
-        parser.parse_args_into_dataclasses()
-    )
+
+    args: tuple[
+        ModelArguments,
+        DataTrainingArguments,
+        CustomTrainingArguments,
+        RetrieverArguments,
+    ] = parser.parse_args_into_dataclasses()
+
+    model_args, data_args, training_args, retriever_args = args
 
     # logging 설정
     logging.basicConfig(
@@ -66,7 +72,7 @@ def main():
     model, tokenizer = model_loader.get_model_tokenizer()
 
     if data_args.eval_retrieval:
-        datasets = run_2stage_retrieval(
+        datasets = run_retrieval(
             datasets,
             training_args,
             data_args,

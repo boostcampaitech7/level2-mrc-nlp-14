@@ -63,27 +63,6 @@ def df2datasets(df: pd.DataFrame, training_args: CustomTrainingArguments):
     return datasets
 
 
-def run_1stage_retrieval(
-    datasets: DatasetDict,
-    training_args: CustomTrainingArguments,
-    data_args: DataTrainingArguments,
-    retriever_args: RetrieverArguments,
-) -> DatasetDict:
-
-    # Query에 맞는 Passage들을 Retrieval 합니다.
-    retriever = create_retriever(retriever_args)
-
-    if data_args.use_faiss:
-        retriever.build_faiss(num_clusters=data_args.num_clusters)
-        df = retriever.retrieve_faiss(
-            datasets["validation"], topk=data_args.top_k_retrieval
-        )
-    else:
-        df = retriever.retrieve(datasets["validation"], topk=data_args.top_k_retrieval)
-
-    return df2datasets(df, training_args=training_args)
-
-
 def cross_encoder_rerank(cross_encoder_model, queries, passages):
 
     # Cross-Encoder로 query와 passage 쌍에 대한 relevance score 계산
@@ -106,7 +85,7 @@ def cross_encoder_rerank(cross_encoder_model, queries, passages):
     return relevance_scores_per_query
 
 
-def run_2stage_retrieval(
+def run_retrieval(
     datasets: DatasetDict,
     training_args: CustomTrainingArguments,
     data_args: DataTrainingArguments,
@@ -120,40 +99,41 @@ def run_2stage_retrieval(
     )
     print("First Retrieval Done")
 
-    # Query와 Passage들을 리스트로 변환
-    queries = df["question"].tolist()
+    if retriever_args.use_rerank:
+        # Query와 Passage들을 리스트로 변환
+        queries = df["question"].tolist()
 
-    # passage_separator을 기준으로 passage들을 나눔
-    passages = (
-        df["context"]
-        .apply(lambda x: x.split(first_retriever.passage_seperator))
-        .tolist()
-    )
-
-    # 두 번째 단계: Cross-Encoder로 재랭킹
-    cross_encoder_model_name = "models/2nd_embedder/beomi_kcbert-base_cross-encoder"
-    cross_encoder_model = CrossEncoder(
-        cross_encoder_model_name
-    )  # Cross-Encoder 모델 로드
-    relevance_scores_per_query = cross_encoder_rerank(
-        cross_encoder_model, queries, passages
-    )
-    print("Second Retrieval Done")
-
-    # Query마다 top-n (예: top-5) passage들만 선택해서 다시 묶음
-    selected_passages = [
-        first_retriever.passage_seperator.join(
-            [
-                passage
-                for _, passage in sorted(zip(scores, passage_set), reverse=True)[
-                    : data_args.top_n_retrieval
-                ]
-            ]
+        # passage_separator을 기준으로 passage들을 나눔
+        passages = (
+            df["context"]
+            .apply(lambda x: x.split(first_retriever.passage_seperator))
+            .tolist()
         )
-        for scores, passage_set in zip(relevance_scores_per_query, passages)
-    ]
 
-    # df["context"]에 새로 묶인 passage들 저장
-    df["context"] = selected_passages
+        # 두 번째 단계: Cross-Encoder로 재랭킹
+        cross_encoder_model_name = "models/2nd_embedder/beomi_kcbert-base_cross-encoder"
+        cross_encoder_model = CrossEncoder(
+            cross_encoder_model_name
+        )  # Cross-Encoder 모델 로드
+        relevance_scores_per_query = cross_encoder_rerank(
+            cross_encoder_model, queries, passages
+        )
+        print("Second Retrieval Done")
+
+        # Query마다 top-n (예: top-5) passage들만 선택해서 다시 묶음
+        selected_passages = [
+            first_retriever.passage_seperator.join(
+                [
+                    passage
+                    for _, passage in sorted(zip(scores, passage_set), reverse=True)[
+                        : data_args.top_n_retrieval
+                    ]
+                ]
+            )
+            for scores, passage_set in zip(relevance_scores_per_query, passages)
+        ]
+
+        # df["context"]에 새로 묶인 passage들 저장
+        df["context"] = selected_passages
 
     return df2datasets(df, training_args=training_args)
