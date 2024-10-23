@@ -14,6 +14,17 @@ def load_nbest_predictions(file_paths):
             predictions_list.append(predictions)
     return predictions_list
 
+def load_model_scores(file_paths):
+    """
+    각 모델의 all_results.json 파일에서 평가 점수를 로드하는 함수.
+    """
+    scores = []
+    for file_path in file_paths:
+        with open(file_path, "r") as f:
+            result = json.load(f)
+            scores.append(result["exact_match"])  # exact_match 점수 사용
+    return scores
+
 
 def hard_voting_ensemble(predictions_list):
     """
@@ -31,22 +42,31 @@ def hard_voting_ensemble(predictions_list):
     return final_predictions
 
 
-def soft_voting_ensemble(predictions_list):
+def weighted_soft_voting_ensemble(predictions_list, scores):
     """
-    소프트 보팅: 각 답변의 확률을 평균 내어 가장 높은 확률을 가진 답변을 선택합니다.
+    소프트 보팅: 각 답변의 확률에 모델별 exact_match 점수를 가중치로 곱하여 결합한 뒤, 
+    가장 높은 가중 확률을 가진 답변을 선택합니다.
     """
     final_predictions = {}
-    for qid in predictions_list[0].keys():
-        all_probabilities = []
-        all_texts = []
-        for predictions in predictions_list:
-            for prediction in predictions[qid]:
-                all_texts.append(prediction["text"])
-                all_probabilities.append(prediction["probability"])
 
-        # 확률을 평균 내고 가장 높은 확률을 가진 답변을 선택
-        best_idx = np.argmax(np.mean(all_probabilities, axis=0))
-        final_predictions[qid] = all_texts[best_idx]
+    for qid in predictions_list[0].keys():
+        weighted_probabilities = {}
+
+        for i, predictions in enumerate(predictions_list):
+            weight = scores[i] / 100.0  # exact_match 점수를 가중치로 사용
+            for prediction in predictions[qid]:
+                text = prediction["text"]
+                probability = prediction["probability"] * weight  # 가중 확률 계산
+
+                if text in weighted_probabilities:
+                    weighted_probabilities[text] += probability
+                else:
+                    weighted_probabilities[text] = probability
+
+        # 가장 높은 가중 확률을 가진 답변 선택
+        best_answer = max(weighted_probabilities, key=weighted_probabilities.get)
+        final_predictions[qid] = best_answer
+
     return final_predictions
 
 
@@ -62,18 +82,25 @@ def save_predictions(predictions, file_name):
 if __name__ == "__main__":
     # 각 모델의 nbest_predictions.json 파일 경로
     nbest_files = [
-        "nbest_predictions_model1.json",
-        "nbest_predictions_model2.json",
-        "nbest_predictions_model3.json",
+        "./models/train_dataset/deberta-squad_ep3_batch8/nbest_predictions.json",
+        "./models/train_dataset/klue_bert_ep3_batch8/nbest_predictions.json",
+        "./models/train_dataset/klue_roberta_finetune_ep3_batch8/nbest_predictions.json"
+    ]
+    score_files = [
+        "./models/train_dataset/deberta-squad_ep3_batch8/all_results.json",
+        "./models/train_dataset/klue_bert_ep3_batch8/all_results.json",
+        "./models/train_dataset/klue_roberta_finetune_ep3_batch8/all_results.json"
     ]
 
     # nbest_predictions 로드
     predictions_list = load_nbest_predictions(nbest_files)
+
+    scores = load_model_scores(score_files)
 
     # 하드 보팅 적용
     hard_voting_preds = hard_voting_ensemble(predictions_list)
     save_predictions(hard_voting_preds, "hard_voting_predictions.json")
 
     # 소프트 보팅 적용
-    soft_voting_preds = soft_voting_ensemble(predictions_list)
+    soft_voting_preds = weighted_soft_voting_ensemble(predictions_list, scores)
     save_predictions(soft_voting_preds, "soft_voting_predictions.json")
