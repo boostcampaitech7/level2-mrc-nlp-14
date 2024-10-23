@@ -58,11 +58,18 @@ def train_cross_encoder():
         question = example["question"]
         context = example["context"]
         answers = example["answers"]["text"]
+        answer_starts = example["answers"]["answer_start"]
 
-        if any(answer in context for answer in answers):
-            label = 1.0
-        else:
-            label = 0.0  # answer가 없으면 negative example
+        label = 0.0  # 기본값은 negative example
+
+        # answer가 context 내에 정확하게 위치해 있는지 확인
+        for answer, start_idx in zip(answers, answer_starts):
+            end_idx = start_idx + len(answer)
+
+            # context의 해당 부분이 실제 answer와 일치하는지 확인
+            if context[start_idx:end_idx] == answer:
+                label = 1.0
+                break  # 하나의 answer만 맞아도 positive로 처리
 
         # InputExample 형식으로 변환
         train_samples.append(InputExample(texts=[question, context], label=label))
@@ -81,7 +88,7 @@ def train_cross_encoder():
     cross_encoder = CrossEncoder(model_name, num_labels=1)
 
     # hyperparameters
-    train_batch_size = 32
+    train_batch_size = 16
     num_epochs = 7
     learning_rate = 3e-5
     optimizer_params = {"lr": learning_rate}
