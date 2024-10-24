@@ -7,6 +7,8 @@ Open-Domain Question Answering 을 수행하는 inference 코드 입니다.
 import logging
 import sys
 from typing import NoReturn
+import os
+from datetime import datetime
 
 from args import (
     DataTrainingArguments,
@@ -65,6 +67,15 @@ def main():
 
     # 모델을 초기화하기 전에 난수를 고정합니다.
     set_seed(training_args.seed)
+
+    # 실험별 output_dir을 동적으로 생성 (날짜와 시간을 추가)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = os.path.join(training_args.output_dir, f"experiment_{timestamp}")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # training_args의 output_dir을 수정하여 사용
+    training_args.output_dir = output_dir
+    logger.info(f"Results will be saved in {training_args.output_dir}")
 
     datasets = load_from_disk(data_args.dataset_name)
 
