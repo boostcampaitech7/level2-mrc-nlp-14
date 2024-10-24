@@ -11,7 +11,7 @@ from datasets import (
 )
 
 
-class GetDataset:
+class DatasetProcessor:
     def __init__(self, data_args: DataTrainingArguments):
         self.data_args = data_args
         self.features = Features(
