@@ -7,7 +7,8 @@ import wandb
 from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
 from model import QuestionAnsweringModelLoader
 from data_loader import TextDataLoader
-from datasets import DatasetDict, load_from_disk
+from datasets import DatasetDict
+from additionaldata import DatasetProcessor
 from trainer import QuestionAnsweringTrainer
 from transformers import (
     HfArgumentParser,
@@ -44,7 +45,8 @@ def main():
     # 모델을 초기화하기 전에 난수를 고정합니다.
     set_seed(training_args.seed)
 
-    datasets = load_from_disk(data_args.dataset_name)
+    data_processor = DatasetProcessor(data_args)
+    datasets = data_processor.get_processed_data()
 
     model_loader = QuestionAnsweringModelLoader(model_args)
     model, tokenizer = model_loader.get_model_tokenizer()
@@ -91,6 +93,8 @@ def run_mrc(
         answer_column_name=data_loader.answer_column_name,
         tokenizer=tokenizer,
         use_no_answer=data_args.use_no_answer,
+        use_custom_loss=model_args.use_custom_loss,
+        custom_loss_weight=model_args.custom_loss_weight,
     )
 
     # Training

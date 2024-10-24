@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
 
 
 @dataclass
@@ -72,4 +72,14 @@ class DataTrainingArguments:
     )
     use_no_answer: bool = field(
         default=False, metadata={"help": "Whether to use no answer option or not."}
+    )
+    use_sim_data: bool = field(
+        default=False,
+        metadata={"help": "Whether to use similar data for transfer learning"},
+    )
+    sim_dataset_names: Optional[List[str]] = field(
+        default_factory=lambda: ["squad_kor_v1"],
+        metadata={
+            "help": "The names of the similar datasets to load using load_dataset."
+        },
     )
