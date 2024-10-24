@@ -30,12 +30,7 @@ if __name__ == "__main__":
     model_args, training_args, retriever_args = args
     # Test sparse
     org_dataset = load_from_disk(training_args.dataset_name)
-    full_ds = concatenate_datasets(
-        [
-            org_dataset["train"].flatten_indices(),
-            org_dataset["validation"].flatten_indices(),
-        ]
-    )  # train dev 를 합친 4192 개 질문에 대해 모두 테스트
+    full_ds = org_dataset["validation"].flatten_indices()
     print("*" * 40, "query dataset", "*" * 40)
     print(full_ds)
 
