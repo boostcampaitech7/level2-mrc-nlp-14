@@ -1,7 +1,11 @@
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 
+# debugging info
+launch.json
+
 # binary files
+
 *.bin
 
 # wandb

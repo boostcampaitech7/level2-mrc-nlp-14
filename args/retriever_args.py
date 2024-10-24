@@ -12,7 +12,7 @@ class RetrieverArguments:
         metadata={"help": "Define the path to the context."},
     )
     retrieval_type: str = field(
-        default="dense",
+        default="sparse",
         metadata={"help": "Define which retrieval method to use. (sparse, dense)"},
     )
     sparse_embedding_type: str = field(
@@ -38,4 +38,10 @@ class RetrieverArguments:
     dense_q_embedder: str = field(
         default="klue/bert-base",
         metadata={"help": "Define which embedding method to use."},
+    )
+    use_rerank: bool = field(
+        default=False,
+        metadata={
+            "help": "Define whether to use siamese network for dense retrieval. Two siamese models will be created with p_embedder."
+        },
     )
