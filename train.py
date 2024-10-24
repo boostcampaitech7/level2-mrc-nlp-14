@@ -8,7 +8,7 @@ from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
 from model import QuestionAnsweringModelLoader
 from data_loader import TextDataLoader
 from datasets import DatasetDict
-from additionaldata import SimilarDataset
+from additionaldata import GetDataset
 from trainer import QuestionAnsweringTrainer
 from transformers import (
     HfArgumentParser,
@@ -45,7 +45,7 @@ def main():
     # 모델을 초기화하기 전에 난수를 고정합니다.
     set_seed(training_args.seed)
 
-    data_processor = SimilarDataset(data_args)
+    data_processor = GetDataset(data_args)
     datasets = data_processor.get_processed_data()
 
     model_loader = QuestionAnsweringModelLoader(model_args)
