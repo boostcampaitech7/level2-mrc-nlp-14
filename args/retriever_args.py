@@ -12,7 +12,7 @@ class RetrieverArguments:
         metadata={"help": "Define the path to the context."},
     )
     retrieval_type: str = field(
-        default="sparse",
+        default="dense",
         metadata={"help": "Define which retrieval method to use. (sparse, dense)"},
     )
     sparse_embedding_type: str = field(

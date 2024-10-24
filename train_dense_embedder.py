@@ -5,10 +5,27 @@ from datasets import load_from_disk
 import os
 from transformers import HfArgumentParser, AutoTokenizer, set_seed
 from args import RetrieverArguments, DataTrainingArguments
-from retriever.dense.dense_embedder import BertEmbedder  # BertEmbedder 가져오기
-from retriever.dense.dense_retriever_args import (
-    DenseRetrieverArguments,
-)  # Arguments 가져오기
+from retriever.dense.dense_embedder import BertEmbedder
+from retriever.dense.dense_retriever_args import DenseRetrieverArguments
+import random
+from rank_bm25 import BM25Okapi
+
+
+# BM25을 사용하여 하드 네거티브 준비
+def prepare_hard_negatives(questions, contexts, num_negatives=5):
+    tokenized_contexts = [context.split() for context in contexts]
+    bm25 = BM25Okapi(tokenized_contexts)
+    hard_negatives = []
+
+    for question in questions:
+        tokenized_question = question.split()
+        scores = bm25.get_scores(tokenized_question)
+        top_neg_indices = sorted(
+            range(len(scores)), key=lambda i: scores[i], reverse=True
+        )[1 : num_negatives + 1]
+        hard_negatives.append([contexts[idx] for idx in top_neg_indices])
+
+    return hard_negatives
 
 
 # 학습 함수 정의
@@ -25,11 +42,12 @@ def train_embedder(
     questions = [item["question"] for item in train_data]
     contexts = [item["context"] for item in train_data]
 
-    # p_encoder, q_encoder 초기화
+    hard_negatives = prepare_hard_negatives(questions, contexts)
+
     if dense_args.use_siamese:
         encoder = BertEmbedder.from_pretrained(dense_args.p_embedder_name)
         p_encoder = encoder
-        q_encoder = encoder  # 동일한 인코더를 사용
+        q_encoder = encoder
     else:
         p_encoder = BertEmbedder.from_pretrained(dense_args.p_embedder_name)
         q_encoder = BertEmbedder.from_pretrained(dense_args.q_embedder_name)
@@ -52,16 +70,23 @@ def train_embedder(
     q_encoder.train()
 
     batch_size = 16  # 기본 배치 크기
-    epochs = 3  # 학습 에포크 수를 args에서 받아옴
+    epochs = 5  # 학습 에포크 수를 args에서 받아옴
 
     # 학습 루프 시작
     for epoch in range(epochs):
         total_loss = 0
         print(f"Epoch {epoch + 1}/{epochs}")
 
+        combined_data = list(zip(questions, contexts, hard_negatives))
+        random.shuffle(combined_data)
+        questions, contexts, hard_negatives = zip(*combined_data)
+
         for i in tqdm(range(0, len(questions), batch_size), desc="Training progress"):
             batch_questions = questions[i : i + batch_size]
-            batch_contexts = contexts[i : i + batch_size]
+            batch_contexts = list(contexts[i : i + batch_size])  # 리스트로 변환
+            batch_negatives = [
+                random.choice(hn) for hn in hard_negatives[i : i + batch_size]
+            ]
 
             # 토크나이저로 입력 변환
             q_inputs = tokenizer(
@@ -73,7 +98,7 @@ def train_embedder(
             ).to(device)
 
             p_inputs = tokenizer(
-                batch_contexts,
+                batch_contexts + batch_negatives,
                 return_tensors="pt",
                 padding=True,
                 truncation=True,
