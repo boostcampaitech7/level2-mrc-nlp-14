@@ -11,7 +11,7 @@ from datasets import (
 )
 
 
-class SimilarDataset:
+class GetDataset:
     def __init__(self, data_args: DataTrainingArguments):
         self.data_args = data_args
         self.features = Features(
@@ -49,23 +49,25 @@ class SimilarDataset:
 
         if self.data_args.use_sim_data and self.data_args.sim_dataset_names:
             print("추가적인 데이터를 사용합니다.")
-            similar_datasets = []
+            huggingface_datasets = []
             for sim_name in self.data_args.sim_dataset_names:
                 sim_dataset = load_dataset(sim_name, split="train")
                 sim_dataset = sim_dataset.map(
                     add_question_mark,
                 ).cast(self.features)
-                similar_datasets.append(sim_dataset)
+                huggingface_datasets.append(sim_dataset)
 
-            if similar_datasets:
-                concatenated_similar = concatenate_datasets(similar_datasets)
+            if huggingface_datasets:
+                concatenated_huggingface_datasets = concatenate_datasets(
+                    huggingface_datasets
+                )
             else:
                 raise ValueError(
                     "`use_sim_data`가 True로 설정되었지만 유사한 데이터셋이 로드되지 않았습니다."
                 )
 
             combined_dataset = concatenate_datasets(
-                [original_dataset["train"], concatenated_similar]
+                [original_dataset["train"], concatenated_huggingface_datasets]
             )
             concat_dataset = DatasetDict(
                 {
