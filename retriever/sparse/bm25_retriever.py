@@ -5,6 +5,7 @@ from typing import List, NoReturn, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from datasets import Dataset
 from rank_bm25 import BM25Okapi
 from tqdm.auto import tqdm
@@ -37,7 +38,7 @@ class BM25Retriever(BaseRetriever):
             Passage 파일을 불러오고 BM25Vectorizer를 선언하는 기능을 합니다.
         """
         super().__init__(args.data_path)
-        self.tokenize_fn = args.get_tokenizer().tokenize
+        self.tokenize_fn = args.get_tokenize_fn()
 
         self.data_path = args.data_path
         with open(
@@ -65,7 +66,9 @@ class BM25Retriever(BaseRetriever):
         else:
             print("Building BM25 embedder...")
 
-            self.BM25 = BM25Okapi([self.tokenize_fn(text) for text in self.contexts])
+            self.BM25 = BM25Okapi(
+                [self.tokenize_fn(text) for text in tqdm(self.contexts)]
+            )
             with open(self.embedder_path, "wb") as file:
                 pickle.dump(self.BM25, file)
 

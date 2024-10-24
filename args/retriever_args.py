@@ -21,6 +21,12 @@ class RetrieverArguments:
             "help": "Define which embedding method to use. (tfidf, count, hash, bm25)"
         },
     )
+    sparse_use_morph_analyzer: bool = field(
+        default=True,
+        metadata={
+            "help": "Define whether to use morphological analyzer for sparse retrieval."
+        },
+    )
     sparse_tokenizer_name: str = field(
         default="klue/bert-base",
         metadata={"help": "Define which tokenizer to use."},

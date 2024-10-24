@@ -40,7 +40,7 @@ class SparseRetriever(BaseRetriever):
         # BaseRetriever의 생성자를 호출하여 data_path를 초기화
         super().__init__(args.data_path)
 
-        self.tokenize_fn = args.get_tokenizer().tokenize
+        self.tokenize_fn = args.get_tokenize_fn()
 
         with open(
             os.path.join(args.data_path, args.context_path), "r", encoding="utf-8"
