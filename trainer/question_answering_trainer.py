@@ -184,162 +184,211 @@ class QuestionAnsweringTrainer(Trainer):
         )
         return predictions
 
-    def compute_loss(self, model, inputs, return_outputs=False):
+    def compute_loss(self, model, inputs):
         if self.use_custom_loss and self.tokenizer is not None:
             if model.training:
                 outputs = model(**inputs)
                 total_loss = outputs.loss
 
-                # 어텐션 가중치 추출
-                attentions = outputs.attentions[
-                    -1
-                ]  # (batch_size, num_heads, seq_len, seq_len)
-                attention_weights = attentions.mean(
-                    dim=1
-                )  # (batch_size, seq_len, seq_len)
+                # Extract attention weights
+                attention_weights = self.get_attention_weights(outputs.attentions)
 
-                batch_size, seq_len, _ = attention_weights.size()
+                batch_size, seq_len = attention_weights.size(0), attention_weights.size(
+                    1
+                )
                 device = attention_weights.device
 
-                # token_type_ids 생성 (Question과 Context 구분) token_type_ids를 사용하지 않는 roberta 모델이므로 직접 id부여
+                # Generate token_type_ids
                 input_ids = inputs["input_ids"]
-                token_type_ids = torch.zeros_like(
-                    input_ids, dtype=torch.long, device=device
-                )
-                sep_token_id = self.tokenizer.sep_token_id
-
-                for i in range(batch_size):
-                    sep_indices = (
-                        (input_ids[i] == sep_token_id).nonzero(as_tuple=False).squeeze()
-                    )
-                    if sep_indices.numel() >= 1:
-                        first_sep_index = sep_indices[0].item()
-                        token_type_ids[i, first_sep_index + 1 :] = (
-                            1  # Context 부분을 1로 설정
-                        )
-
-                # 마스크 생성
-                question_mask = token_type_ids == 0  # (batch_size, seq_len)
-                context_mask = token_type_ids == 1  # (batch_size, seq_len)
-
-                # Answer 토큰의 위치 추출
-                start_positions = inputs["start_positions"]  # (batch_size)
-                end_positions = inputs["end_positions"]  # (batch_size)
-
-                # Answer 토큰의 마스크 생성
-                answer_mask = torch.zeros_like(
-                    input_ids, dtype=torch.bool, device=device
-                )
-                for i in range(batch_size):
-                    answer_mask[i, start_positions[i] : end_positions[i] + 1] = True
-
-                # Question과 Answer와 사이의 어텐션 점수를 계산해서 가중치 부여 (간단하긴 하지만 최선이라고는 장담못함)
-
-                # answer의 어텐션 점수분포를 question이 가지는 attention 점수분포와 일치시켜서 가중치로 사용
-                answer_to_question_attention = attention_weights.masked_fill(
-                    ~answer_mask.unsqueeze(2), 0.0
-                )
-                answer_to_question_attention = answer_to_question_attention.masked_fill(
-                    ~question_mask.unsqueeze(1), 0.0
-                )
-                # Answer에서 Question으로의 어텐션 분포 (batch_size, seq_len)
-                answer_to_question = answer_to_question_attention.sum(
-                    dim=1
-                )  # (batch_size, seq_len)
-                answer_to_question = answer_to_question * question_mask.float()
-                answer_to_question = answer_to_question + 1e-12
-                # 정규화
-                answer_to_question_weight = answer_to_question / answer_to_question.sum(
-                    dim=1, keepdim=True
+                token_type_ids = self.get_token_type_ids(
+                    input_ids, self.tokenizer.sep_token_id
                 )
 
-                """
-                # question 어텐션 점수분포를 answer이 가지는 attention 점수분포와 일치시켜서 가중치로 사용 
-                question_to_answer_attention = attention_weights.masked_fill(
-                    ~question_mask.unsqueeze(2), 0.0
-                )
-                question_to_answer_attention = question_to_answer_attention.masked_fill(
-                    ~answer_mask.unsqueeze(1), 0.0
-                )
-                # Question에서 Answer으로의 어텐션 분포 (batch_size, seq_len)
-                question_to_answer = question_to_answer_attention.sum(dim=1)  # (batch_size, seq_len)
-                question_to_answer = question_to_answer * question_mask.float()
-                question_to_answer = question_to_answer + 1e-12
-                # 정규화
-                question_to_answer_weight = question_to_answer / question_to_answer.sum(dim=1, keepdim=True)
-                """
+                # Create masks
+                question_mask, context_mask = self.create_masks(token_type_ids)
 
-                importance_weights = (
-                    answer_to_question_weight  # question_to_answer_weight
+                # Create answer mask
+                start_positions = inputs["start_positions"]
+                end_positions = inputs["end_positions"]
+                answer_mask = self.create_answer_mask(
+                    start_positions, end_positions, seq_len, batch_size, device
                 )
 
-                # 어텐션 가중치에서 Question에서 Context로의 어텐션 분포 계산
-                # Query: Question 토큰, Key: Context 토큰
-                question_to_context_attention = attention_weights.masked_fill(
-                    ~question_mask.unsqueeze(2), 0.0
-                )
-                question_to_context_attention = (
-                    question_to_context_attention.masked_fill(
-                        ~context_mask.unsqueeze(1), 0.0
-                    )
-                )
-                # 중요도 가중치 적용 (가중 평균 적용x)
-                # question_to_context_attention = question_to_context_attention * importance_weights.unsqueeze(2)
-                question_context_attention = question_to_context_attention.sum(
-                    dim=1
-                )  # (batch_size, seq_len)
-                question_context_attention = (
-                    question_context_attention * context_mask.float()
-                )
-                question_context_probs = question_context_attention + 1e-12
-                # 정규화
-                question_context_probs = (
-                    question_context_probs
-                    / question_context_probs.sum(dim=1, keepdim=True)
+                # Compute importance weights
+                importance_weights = self.compute_importance_weights(
+                    attention_weights, answer_mask, question_mask
                 )
 
-                # 어텐션 가중치에서 Answer에서 Context로의 어텐션 분포 계산
-                # Query: Answer 토큰, Key: Context 토큰
-                answer_to_context_attention = attention_weights.masked_fill(
-                    ~answer_mask.unsqueeze(2), 0.0
-                )
-                answer_to_context_attention = answer_to_context_attention.masked_fill(
-                    ~context_mask.unsqueeze(1), 0.0
-                )
-                # 중요도 가중치 적용 (가중 평균 적용o)
-                answer_to_context_attention = (
-                    answer_to_context_attention * importance_weights.unsqueeze(2)
-                )
-                answer_context_attention = answer_to_context_attention.sum(
-                    dim=1
-                )  # (batch_size, seq_len)
-                answer_context_attention = (
-                    answer_context_attention * context_mask.float()
-                )
-                answer_context_probs = answer_context_attention + 1e-12
-                # 정규화
-                answer_context_probs = answer_context_probs / answer_context_probs.sum(
-                    dim=1, keepdim=True
+                # Compute context probabilities
+                question_context_probs = self.compute_context_probs(
+                    attention_weights, question_mask, context_mask
                 )
 
-                # KL Divergence 계산
+                answer_context_probs = self.compute_context_probs(
+                    attention_weights, answer_mask, context_mask, importance_weights
+                )
+
+                # Compute KL Divergence
                 kl_loss = F.kl_div(
-                    answer_context_probs.log(),  # question_context_probs
-                    question_context_probs,  # answer_context_probs
+                    answer_context_probs.log(),
+                    question_context_probs,
                     reduction="batchmean",
                 )
 
-                # 총 손실에 어텐션 손실 추가
-                total_loss = total_loss + (
-                    self.custom_loss_weight * kl_loss
-                )  # 가중치는 필요에 따라 조정
+                # Add attention loss to total loss
+                total_loss += self.custom_loss_weight * kl_loss
             else:
                 outputs = model(**inputs)
                 total_loss = outputs.loss
 
-            if return_outputs:
-                return total_loss, outputs
-            else:
-                return total_loss
+            return total_loss
         else:
-            return super().compute_loss(model, inputs, return_outputs)
+            return super().compute_loss(model, inputs)
+
+    def get_attention_weights(self, attentions):
+        """
+        Extracts and averages attention weights from the last layer over all heads.
+
+        Args:
+            attentions (Tuple[Tensor]): Tuple of attention tensors from each layer.
+
+        Returns:
+            Tensor: Averaged attention weights from the last layer.
+        """
+        # Extract attention weights from the last layer and average over heads
+        last_layer_attentions = attentions[
+            -1
+        ]  # Shape: (batch_size, num_heads, seq_len, seq_len)
+        attention_weights = last_layer_attentions.mean(
+            dim=1
+        )  # Shape: (batch_size, seq_len, seq_len)
+        return attention_weights
+
+    def get_token_type_ids(self, input_ids, sep_token_id):
+        """
+        Generates token type IDs to distinguish between question and context tokens.
+
+        Args:
+            input_ids (Tensor): Input token IDs.
+            sep_token_id (int): Separator token ID.
+
+        Returns:
+            Tensor: Token type IDs with 0 for question and 1 for context.
+        """
+        batch_size, seq_len = input_ids.size()
+        device = input_ids.device
+        token_type_ids = torch.zeros_like(input_ids, dtype=torch.long, device=device)
+
+        for i in range(batch_size):
+            sep_indices = (
+                (input_ids[i] == sep_token_id).nonzero(as_tuple=False).squeeze()
+            )
+            if sep_indices.numel() >= 1:
+                first_sep_index = sep_indices[0].item()
+                token_type_ids[i, first_sep_index + 1 :] = (
+                    1  # Mark context tokens with 1
+                )
+
+        return token_type_ids
+
+    def create_masks(self, token_type_ids):
+        """
+        Creates masks for question and context tokens.
+
+        Args:
+            token_type_ids (Tensor): Token type IDs distinguishing question and context.
+
+        Returns:
+            Tuple[Tensor, Tensor]: Question and context masks.
+        """
+        question_mask = token_type_ids == 0  # Shape: (batch_size, seq_len)
+        context_mask = token_type_ids == 1  # Shape: (batch_size, seq_len)
+        return question_mask, context_mask
+
+    def create_answer_mask(
+        self, start_positions, end_positions, seq_len, batch_size, device
+    ):
+        """
+        Creates a mask for the answer tokens.
+
+        Args:
+            start_positions (Tensor): Start positions of the answers.
+            end_positions (Tensor): End positions of the answers.
+            seq_len (int): Sequence length.
+            batch_size (int): Batch size.
+            device (torch.device): Device to create the tensor on.
+
+        Returns:
+            Tensor: Answer mask.
+        """
+        answer_mask = torch.zeros(
+            (batch_size, seq_len), dtype=torch.bool, device=device
+        )
+        for i in range(batch_size):
+            answer_mask[i, start_positions[i] : end_positions[i] + 1] = True
+        return answer_mask
+
+    def compute_importance_weights(self, attention_weights, answer_mask, question_mask):
+        """
+        Computes importance weights based on attention from answer to question tokens.
+
+        Args:
+            attention_weights (Tensor): Attention weights.
+            answer_mask (Tensor): Mask for answer tokens.
+            question_mask (Tensor): Mask for question tokens.
+
+        Returns:
+            Tensor: Normalized importance weights.
+        """
+        # Attention from answer tokens to question tokens
+        answer_to_question_attention = attention_weights.masked_fill(
+            ~answer_mask.unsqueeze(2), 0.0
+        )
+        answer_to_question_attention = answer_to_question_attention.masked_fill(
+            ~question_mask.unsqueeze(1), 0.0
+        )
+
+        # Sum over query dimension
+        answer_to_question = answer_to_question_attention.sum(
+            dim=1
+        )  # Shape: (batch_size, seq_len)
+        answer_to_question = answer_to_question * question_mask.float()
+        answer_to_question += 1e-12  # Prevent division by zero
+
+        # Normalize to get importance weights
+        importance_weights = answer_to_question / answer_to_question.sum(
+            dim=1, keepdim=True
+        )
+        return importance_weights
+
+    def compute_context_probs(
+        self, attention_weights, source_mask, target_mask, importance_weights=None
+    ):
+        """
+        Computes normalized attention probabilities from source to target tokens.
+
+        Args:
+            attention_weights (Tensor): Attention weights.
+            source_mask (Tensor): Mask for source tokens.
+            target_mask (Tensor): Mask for target tokens.
+            importance_weights (Tensor, optional): Importance weights for weighting attention.
+
+        Returns:
+            Tensor: Normalized attention probabilities.
+        """
+        # Attention from source tokens to target tokens
+        attention = attention_weights.masked_fill(~source_mask.unsqueeze(2), 0.0)
+        attention = attention.masked_fill(~target_mask.unsqueeze(1), 0.0)
+
+        # Apply importance weights if provided
+        if importance_weights is not None:
+            attention = attention * importance_weights.unsqueeze(2)
+
+        # Sum over source tokens
+        attention = attention.sum(dim=1)  # Shape: (batch_size, seq_len)
+        attention = attention * target_mask.float()
+        attention += 1e-12  # Prevent division by zero
+
+        # Normalize to get probabilities
+        context_probs = attention / attention.sum(dim=1, keepdim=True)
+        return context_probs
