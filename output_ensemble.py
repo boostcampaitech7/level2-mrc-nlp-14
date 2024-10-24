@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 import numpy as np
 import json
 
@@ -55,19 +55,15 @@ def weighted_soft_voting_ensemble(predictions_list, scores):
     final_predictions = {}
 
     for qid in predictions_list[0].keys():
-        weighted_probabilities = {}
+        weighted_probabilities = defaultdict(float)
 
         for i, predictions in enumerate(predictions_list):
             weight = scores[i] / 100.0  # exact_match 점수를 가중치로 사용
             for prediction in predictions[qid]:
                 text = prediction["text"]
                 probability = prediction["probability"] * weight  # 가중 확률 계산
-
-                if text in weighted_probabilities:
-                    weighted_probabilities[text] += probability
-                else:
-                    weighted_probabilities[text] = probability
-
+                weighted_probabilities[text] += probability
+                
         # 가장 높은 가중 확률을 가진 답변 선택
         best_answer = max(weighted_probabilities, key=weighted_probabilities.get).strip().strip("\n") # 앞뒤 공백 제거
         final_predictions[qid] = best_answer
