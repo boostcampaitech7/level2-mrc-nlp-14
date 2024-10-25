@@ -1,0 +1,49 @@
+name: New Feature
+description: 새로운 기능 추가 논의🪄
+title: "[New Feature]"
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: feature-summary
+    attributes:
+      label: 기능 요약
+      description: 고안한 기능에 대한 요약
+      placeholder: ex) 실험 로그 README 자동 작성 기능을 추가하고자 합니다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: feature-background
+    attributes:
+      label: 고안 배경
+      description: 해당 기능이 필요한 이유
+      placeholder: ex) 실험 로그를 수작업으로 기록하는 것이 귀찮다.
+    validations:
+      requried: true
+
+  - type: textarea
+    id: feature-flow
+    attributes:
+      label: 기능 상세 플로우
+      description: 해당 기능에 대한 실행 경로 및 세부적인 실행 사항
+      placeholder: |
+        ex)
+        1. 실험 결과 가져오기
+        2-1. README path로 실험 결과 자동 추가
+        2-2. README 기록 성공 log 출력
+    validations:
+      requried: true
+
+  - type: textarea
+    id: feature-image
+    attributes:
+      label: 예상 결과
+      description: 해당 기능을 추가했을 때 기존 기능과 비교 (이미지 권장)
+    validations:
+      requried: true
+
+  - type: textarea
+    id: feature-etc
+    attributes:
+      label: 기타 사항
+      description: 기타 관련 정보
