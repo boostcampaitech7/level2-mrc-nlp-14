@@ -8,7 +8,7 @@ from args import DataTrainingArguments, ModelArguments, CustomTrainingArguments
 from model import QuestionAnsweringModelLoader
 from data_loader import TextDataLoader
 from datasets import DatasetDict
-from additionaldata import DatasetProcessor
+from data_processing import DatasetProcessor
 from trainer import QuestionAnsweringTrainer
 from transformers import (
     HfArgumentParser,
