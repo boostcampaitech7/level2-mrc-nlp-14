@@ -11,7 +11,7 @@ $ tar -xzf data.tar.gz
 $ pip install -r requirements.txt
 ```
 
-## Executuion
+## Execution
 
 상세한 arguments 종류는 `args/` 폴더의 `arguments` 클래스들을 확인 부탁드립니다.
 
@@ -22,7 +22,7 @@ $ pip install -r requirements.txt
 $ python train.py --output_dir ./models/train_dataset --do_train
 ```
 
-MRC 모델의 평가는(`--do_eval`) 따로 설정해야 합니다. 위 학습 예시에 단순히 `--do_eval` 을 추가로 입력해서 훈련 및 평가를 동시에 진행할 수도 있습니다.
+MRC 모델의 평가는 `--do_eval`을 따로 설정해야 합니다. 또한, 위 학습 예시에 `--do_eval` 을 추가로 입력해서 훈련 및 평가를 동시에 진행할 수도 있습니다.
 
 ```bash
 # mrc 모델 평가 (train_dataset 사용)
