@@ -27,9 +27,9 @@ if __name__ == "__main__":
     args: tuple[ModelArguments, DataTrainingArguments, RetrieverArguments] = (
         parser.parse_args_into_dataclasses()
     )
-    model_args, training_args, retriever_args = args
+    model_args, data_args, retriever_args = args
     # Test sparse
-    org_dataset = load_from_disk(training_args.dataset_name)
+    org_dataset = load_from_disk(data_args.dataset_name)
     full_ds = org_dataset["validation"].flatten_indices()
     print("*" * 40, "query dataset", "*" * 40)
     print(full_ds)
@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     query = "대통령을 포함한 미국의 행정부 견제권을 갖는 국가 기관은?"
 
-    if training_args.use_faiss:
+    if data_args.use_faiss:
 
         # test single query
         with timer("single query by faiss"):
